@@ -42,13 +42,20 @@ def _main():
 
 	elif len(args) >= 2 and args[0] == '--test':
 		with hashset(args[1]) as _set:
+			item = None
 			for item in filter(_set.__contains__, args[2:]):
 				print(item)
+			if item is None:
+				return 1
 
 	else:
 		# TODO
 		raise Exception('Usage error')
 
+	return 0
+
 
 if __name__ == '__main__':
-	_main()
+	rv = _main()
+	if rv != 0:
+		sys.exit(rv)
