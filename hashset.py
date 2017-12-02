@@ -2,16 +2,23 @@ import sys, os, math
 import itertools, functools
 import collections, collections.abc
 import struct, pickle, hashlib, mmap
+from hashset_util.picklers import *
 
 
 class pickle_proxy:
 	def __init__( self, *args ):
 		if len(args) == 1:
 			p = args[0]
-			self.dump = p.dumps
-			self.load = p.loads
+			self.dump_single = p.dumps
+			self.load_single = p.loads
 		else:
-			self.dump, self.load = args
+			self.dump_single, self.load_single = args
+
+	def dump_bucket( self, obj ):
+		return self.dump_single(obj)
+
+	def load_bucket( self, buf ):
+		return self.load_single(buf)
 
 
 class hashlib_proxy:
@@ -30,7 +37,7 @@ class hashlib_proxy:
 
 	def __call__( self, data, pickler=None ):
 		if pickler is not None:
-			data = pickler.dump(data)
+			data = pickler(data)
 
 		_hash = self.hash_ctor()
 		_hash.update(data)
@@ -64,9 +71,9 @@ class hashset:
 		self.header = _header.from_bytes(self.buf)
 		self.buckets = []
 		self.buckets_data = self.buf[self.header.value_offset():]
-		with self.buf[self.header.index_offset:self.header.value_offset()] as buckets_idx_raw:
-			self.buckets_idx = (
-				buckets_idx_raw.cast('BHILQ'[self.header.int_size.bit_length() - 1]))
+		self.buckets_idx = (
+			self.buf[self.header.index_offset : self.header.value_offset()]
+				.cast('BHILQ'[self.header.int_size.bit_length() - 1]))
 
 
 	def __iter__( self ):
@@ -75,7 +82,7 @@ class hashset:
 
 
 	def __contains__( self, obj ):
-		return obj in self.get_bucket(self.header.get_bucket(obj))
+		return obj in self.get_bucket(self.header.get_bucket_idx(obj))
 
 
 	def get_bucket( self, n ):
@@ -92,11 +99,10 @@ class hashset:
 
 
 	def _get_bucket2( self, start, stop ):
-		if start >= stop:
-			assert start == stop
-			return ()
-		with self.buckets_data[start:stop] as bucket_data:
-			return self.header.pickler.load(bucket_data)
+		return (
+			self.header.pickler.load_bucket(
+				self.buckets_data[start:stop].tobytes())
+			if start < stop else ())
 
 
 	@staticmethod
@@ -137,7 +143,7 @@ class hashset:
 
 		buckets = [()] * header.bucket_count
 		for obj in _set:
-			i = header.get_bucket(obj)
+			i = header.get_bucket_idx(obj)
 			#print(obj, '=>', i)
 			bucket = buckets[i] or []
 			if not bucket:
@@ -146,7 +152,7 @@ class hashset:
 		del _set
 		#print(*buckets, sep='\n', end='\n\n')
 
-		buckets = [pickler.dump(b) if b else b'' for b in buckets]
+		buckets = list(_iconditional(buckets, bool, pickler.dump_bucket, b''))
 		#print(*buckets, sep='\n', end='\n\n')
 		#header.calculate_sizes(buckets); print(*('{}={:#x}'.format(k, getattr(header, k)) for k in header._struct_keys if hasattr(header, k)), sep=', ', file=sys.stderr)
 		header.to_file(file, buckets)
@@ -194,8 +200,8 @@ class _header:
 		self._bucket_mask = max(n - 1, 0)
 
 
-	def get_bucket( self, _bytes ):
-		return self.hasher(_bytes, self.pickler) & self._bucket_mask
+	def get_bucket_idx( self, _bytes ):
+		return self.hasher(_bytes, self.pickler.dump_single) & self._bucket_mask
 
 
 	def value_offset( self ):
@@ -318,6 +324,10 @@ def _get_default( seq, idx, default=None ):
 	return seq[idx] if 0 <= idx < len(seq) else default
 
 
+def _identity( x ):
+	return x
+
+
 def _iskip( iterable, skip ):
 	it = iter(iterable)
 	try:
@@ -330,3 +340,16 @@ def _iskip( iterable, skip ):
 
 def _ichain( iterable, *suffix ):
 	return itertools.chain(iterable, suffix)
+
+
+def _iconditional( iterable, pred=bool, func_true=_identity,
+	func_false=_identity
+):
+	if not callable(func_true):
+		val_true = func_true
+		func_true = lambda x: val_true
+	if not callable(func_false):
+		val_false = func_false
+		func_false = lambda x: val_false
+
+	return (func_true(x) if pred(x) else func_false(x) for x in iterable)
