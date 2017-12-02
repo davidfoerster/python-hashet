@@ -1,9 +1,10 @@
 import sys
+from .header import header
 
 
 class bytes_pickler:
 	# TODO: Scale int_size automatically
-	def __init__( self, list_ctor=list, int_size=4, byteorder=sys.byteorder ):
+	def __init__( self, list_ctor=list, int_size=4, byteorder=header.byteorder ):
 		self.list_ctor = list_ctor
 		self.int_size = int_size
 		self.byteorder = byteorder
@@ -54,3 +55,21 @@ class string_pickler(bytes_pickler):
 
 	def load_single_convert( self, buf ):
 		return str(buf, self.encoding)
+
+
+#####################################################################
+
+class pickle_proxy:
+	def __init__( self, *args ):
+		if len(args) == 1:
+			p = args[0]
+			self.dump_single = p.dumps
+			self.load_single = p.loads
+		else:
+			self.dump_single, self.load_single = args
+
+	def dump_bucket( self, obj ):
+		return self.dump_single(obj)
+
+	def load_bucket( self, buf ):
+		return self.load_single(buf)

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import sys, os
 from . import hashset
-from .picklers import string_pickler
 
 import pickle
 pickle.DEFAULT_PROTOCOL = pickle.HIGHEST_PROTOCOL
@@ -20,18 +19,9 @@ def _open(path, mode='r'):
 	return open(path, mode)
 
 
-def _fdopen(path, mode=os.O_RDONLY):
-	if path == '-':
-		if mode & os.O_ACCMODE == os.O_RDONLY:
-			return sys.stdin.fileno()
-		if mode & os.O_ACCMODE in (os.O_WRONLY, os.O_RDWR):
-			return sys.stdout.fileno()
-
-	return os.open(path, mode)
-
-
 args = sys.argv[1:]
 if len(args) == 3 and args[0] == '--build':
+	from .picklers import string_pickler
 	with _open(args[1]) as f_in, _open(args[2], 'wb') as f_out:
 		hashset.build(
 			(line.rstrip('\n') for line in f_in), f_out, pickler=string_pickler())
