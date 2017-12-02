@@ -79,15 +79,12 @@ class header:
 		self.index_offset = (
 			len(self._magic) + self._struct.size + len(self._vardata))
 
-		if buckets is None:
-			self.int_size = util.ceil_pow2(max(self.int_size, 1))
-		else:
-			# Calculate int_size
-			buckets_length = sum(map(len, buckets))
-			_max = max(self.value_offset(), buckets_length)
-			while _max.bit_length() > self.int_size * 8:
-				self.int_size = util.ceil_pow2((_max.bit_length() + 7) // 8)
-				_max = max(self.value_offset(), buckets_length)
+		# Calculate int_size
+		if buckets is not None:
+			max_int = sum(map(len, buckets))
+			self.int_size = util.ceil_pow2((max_int.bit_length() + 7) // 8)
+
+		self.int_size = max(self.int_size, 1)
 
 
 	def to_bytes( self, buf=None, buckets=None ):
