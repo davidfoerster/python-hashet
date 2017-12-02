@@ -10,11 +10,13 @@ def _open(path, mode='r'):
 	if path == '-':
 		if mode == 'r':
 			return sys.stdin
-		if '+' not in mode:
-			if 'w' in mode:
-				path = '/dev/stdout'
-			elif 'r' in mode or 'a' in mode:
-				path = '/dev/stdin'
+		if mode == 'w':
+			return sys.stdout
+
+		ValueError(
+			'Cannot use the special path {!r} with file mode {!r}. '
+			'Please use \'/dev/std*\' etc. instead.'
+				.format(path, mode))
 
 	return open(path, mode)
 
@@ -22,7 +24,7 @@ def _open(path, mode='r'):
 args = sys.argv[1:]
 if len(args) == 3 and args[0] == '--build':
 	from .picklers import string_pickler
-	with _open(args[1]) as f_in, _open(args[2], 'wb') as f_out:
+	with _open(args[1]) as f_in, open(args[2], 'wb') as f_out:
 		hashset.build(
 			(line.rstrip('\n') for line in f_in), f_out, pickler=string_pickler())
 
