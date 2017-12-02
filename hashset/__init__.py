@@ -2,7 +2,6 @@ import sys, os, math
 import itertools, functools
 import collections, collections.abc
 import struct, pickle, hashlib, mmap
-from hashset_util.picklers import *
 
 
 class pickle_proxy:
