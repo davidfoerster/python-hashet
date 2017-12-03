@@ -47,7 +47,7 @@ class hashset:
 		bucket = self.buckets[n]
 		if bucket is None:
 			bucket = self._get_bucket2(self.buckets_idx[n],
-				util.get_default(self.buckets_idx, n + 1, len(self.buckets_data)))
+				util.getitem(self.buckets_idx, n + 1, len(self.buckets_data)))
 			self.buckets[n] = bucket
 
 		return bucket

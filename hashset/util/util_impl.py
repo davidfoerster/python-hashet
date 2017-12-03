@@ -6,7 +6,7 @@ def ceil_pow2( n ):
 	return n if is_pow2(n) else 1 << n.bit_length()
 
 
-def get_default( seq, idx, default=None ):
+def getitem( seq, idx, default ):
 	return seq[idx] if 0 <= idx < len(seq) else default
 
 
