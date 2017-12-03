@@ -32,7 +32,7 @@ class _vardata_hook:
 class header:
 	byteorder = sys.byteorder
 	_magic = b'hashset '
-	_version = 0xff
+	_version = 1
 
 	_struct = struct.Struct('=BB 2x I')
 	_struct_keys = ('version', 'int_size', 'index_offset')
