@@ -24,10 +24,10 @@ class hashset:
 		self._mmap = buf if isinstance(buf, mmap.mmap) else None
 		self.buf = memoryview(buf)
 		self.header = hashset_header.from_bytes(self.buf)
+		self.value_offset = self.header.value_offset()
 		self.buckets = []
-		self.buckets_data = self.buf[self.header.value_offset():]
 		self.buckets_idx = (
-			self.buf[self.header.index_offset : self.header.value_offset()]
+			self.buf[self.header.index_offset : self.value_offset]
 				.cast('BHILQ'[self.header.int_size.bit_length() - 1]))
 
 
@@ -53,14 +53,16 @@ class hashset:
 		self._extend_buckets(n + 1)
 		bucket = self.buckets[n]
 		if bucket is None:
-			start = self.buckets_idx[n]
-			stop = util.getitem(self.buckets_idx, n + 1, len(self.buckets_data))
-			if start < stop:
+			offset = self.buckets_idx[n]
+			length = (
+				util.getitem(self.buckets_idx, n + 1,
+					len(self.buf) - self.value_offset) - offset)
+			if length > 0:
 				bucket = (
 					self.header.pickler.load_bucket(
-						self.buckets_data[start:stop].tobytes()))
+						self.buf, self.value_offset + offset, length))
 			else:
-				assert start == stop
+				assert length == 0
 				bucket = ()
 
 			self.buckets[n] = bucket
