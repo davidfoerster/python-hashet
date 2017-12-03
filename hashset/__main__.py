@@ -35,9 +35,21 @@ elif len(args) == 2 and args[0] == '--read':
 
 elif len(args) >= 2 and args[0] == '--test':
 	with hashset(args[1]) as _set:
+		needles = args[2:]
+		if needles:
+			fneedles = None
+		else:
+			fneedles = sys.stdin
+			needles = (s.rstrip('\n') for s in fneedles)
+
 		item = None
-		for item in filter(_set.__contains__, args[2:]):
-			print(item)
+		try:
+			for item in filter(_set.__contains__, needles):
+				print(item)
+		finally:
+			if fneedles is not None:
+				fneedles.close()
+
 		if item is None:
 			sys.exit(1)
 
