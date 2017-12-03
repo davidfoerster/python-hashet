@@ -15,6 +15,11 @@ def each( func, iterable ):
 		func(item)
 
 
+def stareach( func, iterable ):
+	for item in iterable:
+		func(*item)
+
+
 def iskip( iterable, skip ):
 	it = iter(iterable)
 	try:

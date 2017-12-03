@@ -1,52 +1,111 @@
-import sys, math
+import sys, math, itertools
 import struct, pickle
 import hashset.util as util
+from .util import property_setter
+from .util.math import ceil_div, is_pow2, ceil_pow2
+from .util.iter import stareach
+
+
+class _vardata_hook:
+	def __init__( self, name ):
+		self.name = '_' + name
+		self.fset = None
+
+	def setter( self, fset ):
+		self.fset = fset
+		return self
+
+	def __get__( self, instance, owner ):
+		return getattr(instance, self.name)
+
+	def __set__( self, instance, value ):
+		old_value = self.__get__(instance, None)
+		if type(value) is not type(old_value) or value != old_value:
+			if self.fset is None:
+				setattr(instance, self.name, value)
+			else:
+				self.fset(instance, value)
+
+			instance._vardata = None
 
 
 class header:
 	byteorder = sys.byteorder
 	_magic = b'hashset '
 	_version = 0xff
-	_struct = struct.Struct('=BB 6x QQQ')
-	_struct_keys = (
-		'version', 'int_size', 'index_offset', 'element_count', 'bucket_count')
-	_vardata_keys = ('hasher', 'pickler')
+
+	_struct = struct.Struct('=BB 2x I')
+	_struct_keys = ('version', 'int_size', 'index_offset')
+	_vardata_keys = ('element_count', 'bucket_count', 'hasher', 'pickler')
+	vars().update({ k: _vardata_hook(k) for k in _vardata_keys[1:] })
+
 
 	def __init__( self, hasher, pickler, int_size=8 ):
-		self.hasher = hasher
-		self.pickler = pickler
-		self._vardata = None
-
 		self.int_size = int_size
 		self.index_offset = None
-		self.element_count = None
-		self.bucket_count = None
+
+		self._vardata = None
+		self._hasher = hasher
+		self._pickler = pickler
+		self._element_count = None
+		self._bucket_count = None
 		self._bucket_mask = None
 
 
+	@property_setter
+	def int_size( self, n ):
+		if not (0 <= n <= 128 and is_pow2(n)):
+			raise ValueError(
+			'int_size must be a power of 2 between 0 and 128, not {:d}'.format(n))
+
+		self._int_size = n
+
+
+	@property
+	def element_count( self ):
+		return self._element_count
+
 	def set_element_count( self, n, load_factor=1 ):
+		assert n >= 0
+		assert load_factor > 0
+		self._element_count = n
+
 		if n > 0:
-			self.element_count = n
 			bc1 = math.ceil(n / load_factor)
 			bc2 = 1 << (bc1.bit_length() - 1)
 			bc2 <<= bc1 != bc2
-			self._set_bucket_count(bc2)
+			self.bucket_count = bc2
 		else:
-			self.element_count = 0
-			self._set_bucket_count(0)
+			self.bucket_count = 0
 
 
-	def _set_bucket_count( self, n ):
-		if n < 0 or not util.is_pow2(n):
+	@bucket_count.setter
+	def bucket_count( self, n ):
+		if not (n >= 0 and is_pow2(n)):
 			raise ValueError(
-				'Bucket count must be non-negative a power of 2, not {:d}'.format(n))
+			'Bucket count must be a non-negative power of 2, not {:d}'.format(n))
 
-		self.bucket_count = n
+		self._bucket_count = n
 		self._bucket_mask = max(n - 1, 0)
+		self._vardata = None
 
 
-	def get_bucket_idx( self, _bytes ):
-		return self.hasher(_bytes, self.pickler.dump_single) & self._bucket_mask
+	def vardata( self, force=False ):
+		if force or self._vardata is None:
+			if any(getattr(self, k) is None for k in self._vardata_keys):
+				raise RuntimeError(
+					'One or more of \'{}\' were never assigned'
+						.format('\', \''.join(self._vardata_keys)))
+
+			self._vardata = (
+				util.pad_multiple_of(8,
+					pickle.dumps({ k: getattr(self, k) for k in self._vardata_keys })))
+
+		return self._vardata
+
+
+	def get_bucket_idx( self, buf ):
+		return self.hasher(buf, self.pickler.dump_single) & self._bucket_mask
 
 
 	def value_offset( self ):
@@ -63,28 +122,20 @@ class header:
 			return cls._magic
 		if cls.byteorder == 'big':
 			return cls._magic[::-1]
-		raise 'Unknown byte order: {!r}'.format(cls.byteorder)
+		raise Exception('Unknown byte order: {!r}'.format(cls.byteorder))
 
 
 	def calculate_sizes( self, buckets=None, force=False ):
-		if force or self._vardata is None:
-			# Pickle vardata
-			self._vardata = pickle.dumps(
-				{ k: getattr(self, k) for k in self._vardata_keys })
-			if len(self._vardata) % 8:
-				self._vardata += b'\x00' * ((8 - len(self._vardata)) % 8)
-
 		# Calculate index offset
 		assert len(self._magic) % 8 == 0
 		self.index_offset = (
-			len(self._magic) + self._struct.size + len(self._vardata))
+			len(self._magic) + self._struct.size + len(self.vardata(force)))
 
 		# Calculate int_size
 		if buckets is not None:
 			max_int = sum(map(len, buckets))
-			self.int_size = util.ceil_pow2((max_int.bit_length() + 7) // 8)
-
-		self.int_size = max(self.int_size, 1)
+			self.int_size = ceil_pow2(ceil_div(max_int.bit_length(), 8))
+			assert 0 <= self.int_size.bit_length() <= 8
 
 
 	def to_bytes( self, buf=None, buckets=None ):
@@ -95,9 +146,9 @@ class header:
 
 		magic = self.get_magic()
 		buf[:len(magic)] = magic
-		self._struct.pack_into(buf, len(magic), self._version, self.int_size,
-			self.index_offset, self.element_count, self.bucket_count)
-		buf[len(magic) + self._struct.size:] = self._vardata
+		self._struct.pack_into(buf, len(magic),
+			self._version, self.int_size, self.index_offset)
+		buf[len(magic) + self._struct.size:] = self.vardata()
 		return buf
 
 
@@ -121,21 +172,21 @@ class header:
 		assert len(s) == len(cls._struct_keys)
 		s = dict(zip(cls._struct_keys, s))
 
-		if s['version'] != cls._version:
+		version = s.pop('version')
+		if version != cls._version:
 			raise ValueError(
-				'Unsupported version {}, expected {}'.format(
-					s['version'], cls._version))
+				'Unsupported version {:d}, expected {:d}'.format(
+					version, cls._version))
 
-		int_size = s['int_size']
-		if not (0 < int_size <= 8 and util.is_pow2(int_size)):
-			raise ValueError(
-				'Integer size must be a power of 2 between 1 and 8, not {:d}'
-					.format(int_size))
+		var = pickle.loads(
+			b[ len(magic) + cls._struct.size : s['index_offset'] ])
+		missing_keys = tuple(
+			itertools.filterfalse(var.__contains__, cls._vardata_keys))
+		if missing_keys:
+			raise ValueError('Keys missing from header: {}'
+				.format(', '.join(missing_keys)))
 
-		vardata_offset = len(magic) + cls._struct.size
-		h = cls(**pickle.loads(b[vardata_offset:s['index_offset']]))
-		h._set_bucket_count(s.pop('bucket_count'))
-		for k, v in s.items():
-			if hasattr(h, k):
-				setattr(h, k, v)
+		h = cls(var.pop('hasher'), var.pop('pickler'), s.pop('int_size'))
+		h._element_count = var.pop('element_count')
+		stareach(h.__setattr__, itertools.chain(s.items(), var.items()))
 		return h
