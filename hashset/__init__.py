@@ -3,7 +3,7 @@ import itertools, collections.abc
 import pickle
 import hashset.util, hashset.util.iter
 from .header import header as hashset_header
-from .picklers import pickle_proxy
+from .picklers import pickle_proxy, PickleError
 from .hashers import hashlib_proxy
 
 
@@ -106,14 +106,24 @@ class hashset:
 		header.set_element_count(len(_set), load_factor)
 		#print(header.element_count, header.bucket_count)
 
-		buckets = [()] * header.bucket_count
-		for obj in _set:
-			i = header.get_bucket_idx(obj)
-			#print(obj, '=>', i)
-			bucket = buckets[i] or []
-			if not bucket:
-				buckets[i] = bucket
-			bucket.append(obj)
+		while True:
+			buckets = [()] * header.bucket_count
+			try:
+				for obj in _set:
+					i = header.get_bucket_idx(obj)
+					#print(obj, '=>', i)
+					bucket = buckets[i] or []
+					if not bucket:
+						buckets[i] = bucket
+					bucket.append(obj)
+
+				break
+			except PickleError as err:
+				if err.can_resume:
+					header.reevaluate()
+				else:
+					raise err
+
 		del _set
 		#print(*buckets, sep='\n', end='\n\n')
 

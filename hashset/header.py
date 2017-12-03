@@ -90,6 +90,10 @@ class header:
 		self._vardata = None
 
 
+	def reevaluate( self ):
+		self._vardata = None
+
+
 	def vardata( self, force=False ):
 		if force or self._vardata is None:
 			if any(getattr(self, k) is None for k in self._vardata_keys):

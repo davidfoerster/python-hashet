@@ -1,5 +1,6 @@
 import sys
 from .header import header
+from .util.math import ceil_div
 
 
 def _slice( buf, offset=0, length=None ):
@@ -9,16 +10,22 @@ def _slice( buf, offset=0, length=None ):
 	return buf
 
 
+class PickleError(RuntimeError):
+	def __init__( self, msg=None, cause=None, can_resume=False ):
+		super().__init__(*((msg,) if msg else (cause.args if cause else ())))
+		self.cause = cause
+		self.can_resume = can_resume
+
+
 class bytes_pickler:
-	# TODO: Scale int_size automatically
-	def __init__( self, list_ctor=list, int_size=4, byteorder=header.byteorder ):
+	def __init__( self, list_ctor=list, int_size=1, byteorder=header.byteorder ):
 		self.list_ctor = list_ctor
 		self.int_size = int_size
 		self.byteorder = byteorder
 
 
 	def dump_single( self, obj ):
-		return len(obj).to_bytes(self.int_size, self.byteorder) + obj
+		return self._to_bytes(len(obj)) + obj
 
 	def dump_bucket( self, obj ):
 		return b''.join(map(self.dump_single, obj))
@@ -46,6 +53,24 @@ class bytes_pickler:
 
 	def _get_length( self, buf, offset=0 ):
 		return int.from_bytes(_slice(buf, offset, self.int_size), self.byteorder)
+
+
+	def _to_bytes( self, n ):
+		try:
+			return n.to_bytes(self.int_size, self.byteorder)
+		except OverflowError as err:
+			err.value = n
+			err = PickleError(
+				'{:d} is too big to be represented in {:d} bytes'
+					.format(n, self.int_size),
+				err, True)
+			self.int_size = self.get_int_size_for_val(n)
+			raise err
+
+
+	@staticmethod
+	def get_int_size_for_val( n ):
+		return ceil_div(n.bit_length(), 8)
 
 
 #####################################################################
