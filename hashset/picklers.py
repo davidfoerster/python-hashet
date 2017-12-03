@@ -25,7 +25,12 @@ class bytes_pickler:
 
 
 	def dump_single( self, obj ):
+		obj = self.dump_single_convert(obj)
 		return self._to_bytes(len(obj)) + obj
+
+	def dump_single_convert( self, obj ):
+		return obj
+
 
 	def dump_bucket( self, obj ):
 		return b''.join(map(self.dump_single, obj))
@@ -49,6 +54,14 @@ class bytes_pickler:
 			offset += self.int_size
 			yield self.load_single_convert(buf, offset, length)
 			offset += length
+
+
+	def run_estimates( self, items ):
+		longest = max(items, key=len, default=None)
+		if longest is not None:
+			self.int_size = max(
+				self.get_int_size_for_val(len(self.dump_single_convert(longest))),
+				1)
 
 
 	def _get_length( self, buf, offset=0 ):
@@ -80,8 +93,8 @@ class string_pickler(bytes_pickler):
 		super().__init__(*args, **kwargs)
 		self.encoding = encoding
 
-	def dump_single( self, obj ):
-		return super().dump_single(obj.encode(self.encoding))
+	def dump_single_convert( self, obj ):
+		return obj.encode(self.encoding)
 
 	def load_single_convert( self, buf, offset, length=None ):
 		return str(super().load_single_convert(buf, offset, length), self.encoding)

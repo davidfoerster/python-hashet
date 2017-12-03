@@ -120,6 +120,11 @@ class header:
 		return n.to_bytes(self.int_size, self.byteorder)
 
 
+	def run_estimates( self, items ):
+		est = getattr(self.pickler, 'run_estimates', None)
+		if est is not None: est(items)
+
+
 	@classmethod
 	def get_magic( cls ):
 		if cls.byteorder == 'little':

@@ -103,6 +103,7 @@ class hashset:
 
 		header = hashset_header(hasher, pickler, 1)
 		header.set_element_count(len(_set), load_factor)
+		header.run_estimates(_set)
 
 		while True:
 			buckets = [()] * header.bucket_count
