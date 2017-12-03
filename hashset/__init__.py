@@ -100,18 +100,15 @@ class hashset:
 		else:
 			_set = frozenset(iterable)
 		del iterable
-		#print(*_set, sep='\n', end='\n\n')
 
 		header = hashset_header(hasher, pickler, 1)
 		header.set_element_count(len(_set), load_factor)
-		#print(header.element_count, header.bucket_count)
 
 		while True:
 			buckets = [()] * header.bucket_count
 			try:
 				for obj in _set:
 					i = header.get_bucket_idx(obj)
-					#print(obj, '=>', i)
 					bucket = buckets[i] or []
 					if not bucket:
 						buckets[i] = bucket
@@ -123,12 +120,8 @@ class hashset:
 					header.reevaluate()
 				else:
 					raise err
-
 		del _set
-		#print(*buckets, sep='\n', end='\n\n')
 
 		buckets = list(
 			util.iter.iconditional(buckets, bool, pickler.dump_bucket, b''))
-		#print(*buckets, sep='\n', end='\n\n')
-		#header.calculate_sizes(buckets); print(*('{}={:#x}'.format(k, getattr(header, k)) for k in header._struct_keys if hasattr(header, k)), sep=', ', file=sys.stderr)
 		header.to_file(file, buckets)
