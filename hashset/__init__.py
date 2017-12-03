@@ -31,7 +31,16 @@ class hashset:
 				.cast('BHILQ'[self.header.int_size.bit_length() - 1]))
 
 
+	def _extend_buckets( self, size=None ):
+		if size is None:
+			size = self.header.bucket_count
+		if len(self.buckets) < size:
+			self.buckets.extend(
+				itertools.repeat(None, size - len(self.buckets)))
+
+
 	def __iter__( self ):
+		self._extend_buckets
 		return itertools.chain.from_iterable(
 			map(self.get_bucket, range(self.header.bucket_count)))
 
@@ -41,23 +50,22 @@ class hashset:
 
 
 	def get_bucket( self, n ):
-		if n >= len(self.buckets):
-			self.buckets.extend(itertools.repeat(None, n + 1))
-
+		self._extend_buckets(n + 1)
 		bucket = self.buckets[n]
 		if bucket is None:
-			bucket = self._get_bucket2(self.buckets_idx[n],
-				util.getitem(self.buckets_idx, n + 1, len(self.buckets_data)))
+			start = self.buckets_idx[n]
+			stop = util.getitem(self.buckets_idx, n + 1, len(self.buckets_data))
+			if start < stop:
+				bucket = (
+					self.header.pickler.load_bucket(
+						self.buckets_data[start:stop].tobytes()))
+			else:
+				assert start == stop
+				bucket = ()
+
 			self.buckets[n] = bucket
 
 		return bucket
-
-
-	def _get_bucket2( self, start, stop ):
-		return (
-			self.header.pickler.load_bucket(
-				self.buckets_data[start:stop].tobytes())
-			if start < stop else ())
 
 
 	@staticmethod
