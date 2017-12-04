@@ -8,7 +8,19 @@ from .hashers import default_hasher
 
 
 class hashset:
+	"""Manages previously constructed hash sets that are stored in a buffer.
+
+	Such a buff is typically backed by a memory-mapped file.
+	"""
+
+
 	def __init__( self, buf ):
+		"""Initialize a new hashset instance with a backing buffer.
+
+		The buffer may be a path name or a file descriptor that serves as a
+		reference to construct a memory-mapping of the referenced file.
+		"""
+
 		if isinstance(buf, str):
 			fd = os.open(buf, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
 			try:
@@ -40,16 +52,23 @@ class hashset:
 
 
 	def __iter__( self ):
+		"""Returns an iterator over the entries of this hash set."""
 		self._extend_buckets
 		return itertools.chain.from_iterable(
 			map(self.get_bucket, range(self.header.bucket_count)))
 
 
 	def __contains__( self, obj ):
+		"""Tests if this hash set contains the given object."""
 		return obj in self.get_bucket(self.header.get_bucket_idx(obj))
 
 
 	def get_bucket( self, n ):
+		"""Returns the bucket at a given index.
+
+		A bucket is either a sequence or a set of entries.
+		"""
+
 		self._extend_buckets(n + 1)
 		bucket = self.buckets[n]
 		if bucket is None:
@@ -76,6 +95,12 @@ class hashset:
 
 
 	def release( self ):
+		"""Releases the resources associated with this hash set, e. g. a memory-mapping.
+
+		hashset implements the resource manager interface which calls this method
+		upon exit.
+		"""
+
 		for v in vars(self).values():
 			if isinstance(v, memoryview):
 				v.release()
@@ -95,6 +120,19 @@ class hashset:
 	def build( iterable, file=None, hasher=default_hasher,
 		pickler=pickle_proxy(pickle), load_factor=2/3
 	):
+		"""Builds a new hash set based on the items of a given iterable and saves the resulting data set to a buffer, typically backed by a file.
+
+		'hasher' is a callable that accepts an object to hash and optional 'pickler'
+		callable to convert the object to a byte sequence consumable by most hash
+		algorithm implementations.
+
+		'pickler' is an object with the 4 function interfaces 'dump_single',
+		'dump_bucket', 'load_single', and 'load_bucket' that “dump” single objects
+		or buckets (i. e. sequences) to or load them from byte sequences.
+
+		'load_factor' is the ratio of buckets to items used in this hash set.
+		"""
+
 		if isinstance(iterable, collections.abc.Set):
 			_set = iterable
 		else:

@@ -38,6 +38,8 @@ class _vardata_hook:
 
 
 class header:
+	"""Manages and represents the necessary header data of a stored hash set and provides some ancilliary services."""
+
 	byteorder = sys.byteorder
 	_magic = b'hashset '
 	_version = 1
@@ -47,8 +49,17 @@ class header:
 	_vardata_keys = ('element_count', 'bucket_count', 'hasher', 'pickler')
 	vars().update({ k: _vardata_hook(k) for k in _vardata_keys[1:] })
 
+	hasher.__doc__ = """The hasher to use for this hash set. (See 'hashset.build' for a description.)"""
+
+	pickler.__doc__ = """The pickler to use for this hash set. (See 'hashset.build' for a description.)"""
+
 
 	def __init__( self, hasher, pickler, int_size=8 ):
+		"""
+		Initializes a header instance with a hasher, a pickler and a size (in
+		bytes) used to represent section offsets.
+		"""
+
 		self.int_size = int_size
 		self.index_offset = None
 
@@ -62,6 +73,7 @@ class header:
 
 	@property_setter
 	def int_size( self, n ):
+		"""A size (in bytes) used to represent section offsets."""
 		if not (0 <= n <= 128 and is_pow2(n)):
 			raise ValueError(
 			'int_size must be a power of 2 between 0 and 128, not {:d}'.format(n))
@@ -71,6 +83,7 @@ class header:
 
 	@property
 	def element_count( self ):
+		"""The number of elements in this hash set."""
 		return self._element_count
 
 	def set_element_count( self, n, load_factor=1 ):
@@ -89,6 +102,8 @@ class header:
 
 	@bucket_count.setter
 	def bucket_count( self, n ):
+		"""The number if buckets in this hash set."""
+
 		if not (n >= 0 and is_pow2(n)):
 			raise ValueError(
 			'Bucket count must be a non-negative power of 2, not {:d}'.format(n))
@@ -99,10 +114,16 @@ class header:
 
 
 	def reevaluate( self ):
+		"""Resets cached derived attributes in case their source changed."""
 		self._vardata = None
 
 
 	def vardata( self, force=False ):
+		"""Returns the “variable” part of the header data.
+
+		The variable header part contains the bulk of its data.
+		"""
+
 		if force or self._vardata is None:
 			if any(getattr(self, k) is None for k in self._vardata_keys):
 				raise RuntimeError(
@@ -116,19 +137,23 @@ class header:
 		return self._vardata
 
 
-	def get_bucket_idx( self, buf ):
-		return self.hasher(buf, self.pickler.dump_single) & self._bucket_mask
+	def get_bucket_idx( self, obj ):
+		"""Returns the index of the bucket for the given object."""
+		return self.hasher(obj, self.pickler.dump_single) & self._bucket_mask
 
 
 	def value_offset( self ):
+		"""Returns the offset of the content section of the buffer prefixed by this header."""
 		return self.index_offset + self.bucket_count * self.int_size
 
 
 	def int_to_bytes( self, n ):
+		"""Convert an integer to its byte representation based on the parameters int his header."""
 		return n.to_bytes(self.int_size, self.byteorder)
 
 
 	def run_estimates( self, items ):
+		"""Estimate the optimal parameters for a hash set based on the given items."""
 		est = getattr(self.pickler, 'run_estimates', None)
 		if est is not None: est(items)
 
@@ -143,6 +168,12 @@ class header:
 
 
 	def calculate_sizes( self, buckets=None, force=False ):
+		"""Performs some internal calculations before writing this header to a buffer.
+
+		If given a list of buckets, some paramters may be set to more suitable
+		values toa void later issues.
+		"""
+
 		# Calculate index offset
 		assert len(self._magic) % 8 == 0
 		self.index_offset = (
@@ -156,6 +187,11 @@ class header:
 
 
 	def to_bytes( self, buf=None, buckets=None ):
+		"""Writes this header to a newly created or the given buffer and returns it.
+
+		'buckets' is handed to 'calculate_sizes' if given.
+		"""
+
 		self.calculate_sizes(buckets)
 
 		if buf is None:
@@ -179,6 +215,8 @@ class header:
 
 	@classmethod
 	def from_bytes( cls, b ):
+		"""Constructs a new header instance and initializes its paramaters based on the data encoded into a buffer."""
+
 		expected_magic = cls.get_magic()
 		magic = bytes(b[:len(expected_magic)])
 		if magic != expected_magic:

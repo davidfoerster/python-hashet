@@ -3,7 +3,10 @@ from .header import header
 
 
 class hashlib_proxy:
+	"""Wraps the hash algorithms of 'hashlib' for use with 'hashset.build'."""
+
 	def __init__( self, hash_name ):
+		"""Wraps the named 'hashlib' algorithm."""
 		self.name = hash_name
 		self.hash_ctor = self._get_ctor(hash_name)
 
@@ -34,10 +37,13 @@ class hashlib_proxy:
 
 
 class pyhash_proxy:
+	"""Wraps the hash algorithms of 'pyhash' for use with 'hashset.build'."""
+
 	accepted_types = (bytes, str)
 
 
 	def __init__( self, hash_name ):
+		"""Wraps the named 'pyhash' algorithm."""
 		self.name = hash_name
 		self.hasher = getattr(pyhash, hash_name)()
 

@@ -18,7 +18,19 @@ class PickleError(RuntimeError):
 
 
 class bytes_pickler:
+	"""Encodes and decodes byte sequences…
+
+	as well as sequences (“buckets”) of such sequences for use with
+	'hashset.build'.
+	"""
+
 	def __init__( self, list_ctor=list, int_size=1, byteorder=header.byteorder ):
+		"""Initializes a new instance …
+
+		with 'list_ctor' the constructor to build new buckets when decoding,
+		'int_size' and 'byteorder' the size in bytes and byte order of integers
+		used to encode the length of byte sequences as accepted by 'int.to_bytes'.
+		"""
 		self.list_ctor = list_ctor
 		self.int_size = int_size
 		self.byteorder = byteorder
@@ -89,7 +101,14 @@ class bytes_pickler:
 #####################################################################
 
 class string_pickler(bytes_pickler):
+	"""Like its parent, but encodes instances of 'str' instead of byte sequences."""
+
 	def __init__( self, encoding='utf-8', *args, **kwargs ):
+		"""Initializes a new instance with a character encoding …
+
+		as accepted by 'str' and 'str.encode'. Other arguments are forwarded are
+		forwarded to the parent constructor.
+		"""
 		super().__init__(*args, **kwargs)
 		self.encoding = encoding
 
@@ -103,7 +122,20 @@ class string_pickler(bytes_pickler):
 #####################################################################
 
 class pickle_proxy:
+	""" Wraps two callables, one that “dumps” objects to and one that loads them from byte sequences, for use with 'hashset.build'."""
+
+
 	def __init__( self, *args ):
+		"""Requires either one or two arguments.
+
+		With two arguments, use the first as a callable to “dump“ objects to and
+		the second to load them from byte sequences.
+
+		With one arguments use its attributes 'dumps' and 'loads' instead. This is
+		convenient to take such callables from a single object or module, e. g. the
+		'pickle' module.
+		"""
+
 		if len(args) == 1:
 			p = args[0]
 			self.dump_single = p.dumps
@@ -111,8 +143,10 @@ class pickle_proxy:
 		else:
 			self.dump_single, self.load_single = args
 
+
 	def dump_bucket( self, obj ):
 		return self.dump_single(obj)
+
 
 	def load_bucket( self, buf, offset=0, length=None ):
 		return self.load_single(_slice(buf, offset, length))
