@@ -5,6 +5,10 @@ from .header import header
 class hashlib_proxy:
 	"""Wraps the hash algorithms of 'hashlib' for use with 'hashset.build'."""
 
+	algorithms_guaranteed = hashlib.algorithms_guaranteed
+	algorithms_available = hashlib.algorithms_available
+
+
 	def __init__( self, hash_name ):
 		"""Wraps the named 'hashlib' algorithm."""
 		self.name = hash_name
@@ -40,6 +44,9 @@ class pyhash_proxy:
 	"""Wraps the hash algorithms of 'pyhash' for use with 'hashset.build'."""
 
 	accepted_types = (bytes, str)
+	algorithms_available = frozenset()
+	algorithms_preferred = (
+		'xx_64', 'murmur3_x64_128', 'murmur2_x64_64a' )
 
 
 	def __init__( self, hash_name ):
@@ -65,6 +72,15 @@ class pyhash_proxy:
 
 try:
 	import pyhash
-	default_hasher = pyhash_proxy('xx_64')
-except ImportError:
+	pyhash_proxy.algorithms_available = frozenset(
+		k for k in dir(pyhash)
+		if not k.startswith('_') and
+			not k.startswith('Test') and
+			isinstance(getattr(pyhash, k), type)
+	)
+	default_hasher = pyhash_proxy(next(iter(filter(
+		pyhash_proxy.algorithms_available.__contains__,
+		pyhash_proxy.algorithms_preferred))))
+
+except (ImportError, StopIteration):
 	default_hasher = hashlib_proxy('md5')
