@@ -21,18 +21,29 @@ def pad_multiple_of( n, b, fill=b'\0' ):
 	return b.ljust(l - (l % -n), fill)
 
 
-def property_setter( fset, fget='_{}', doc=None, docref='fset' ):
+def attrdeleter( name ):
+	"""Returns a function that calls 'delattr' with the given name."""
+	return lambda obj: delattr(obj, name)
+
+
+def property_setter( fset, fget='_{}', fdel=None, doc=None, docref='fset' ):
 	"""Returns a property that, by default, only overrides the setter method and uses a default getter method.
 
 	The default getter method is based on a backing attribute name which maybe be derived from the name of the given setter method in the follwing way:
 	The first instance of the infix '{}' is replaced with the setter method name.
 
 	If no doc string is specified via 'doc', it may be taken from either the getter
-	('fget') or the setter ('fset') name via 'docref'.
+	('fget'), the setter ('fset') or the deleter ('fdel') name via 'docref'.
 	"""
 
+	if isinstance(fget, str):
+		fget = operator.attrgetter(fget.replace('{}', fset.__name__, 1))
+
+	if isinstance(fdel, str):
+		fdel = attrdeleter(fdel.replace('{}', fset.__name__, 1))
+
 	if doc is None and docref is not None:
-		if docref == 'fget' or docref == 'fset':
+		if docref in ('fget', 'fset', 'fdel'):
 			docref = locals()[docref]
 			if callable(docref):
 				doc = getattr(docref, '__doc__', None)
@@ -40,9 +51,4 @@ def property_setter( fset, fget='_{}', doc=None, docref='fset' ):
 			raise ValueError(
 				'Invalid reference name in \'docref\': {!r}'.format(docref))
 
-	if isinstance(fget, str):
-		if '{}' in fget:
-			fget = fget.replace('{}', fset.__name__, 1)
-		fget = operator.attrgetter(fget)
-
-	return property(fget, fset, doc)
+	return property(fget, fset, fdel, doc)
