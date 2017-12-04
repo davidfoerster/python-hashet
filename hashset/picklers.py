@@ -24,7 +24,9 @@ class bytes_pickler:
 	'hashset.build'.
 	"""
 
-	def __init__( self, list_ctor=list, int_size=1, byteorder=header.byteorder ):
+	def __init__( self, list_ctor=list, int_size=1, byteorder=header.byteorder,
+		**kwargs
+	):
 		"""Initializes a new instance …
 
 		with 'list_ctor' the constructor to build new buckets when decoding,
@@ -125,7 +127,7 @@ class pickle_proxy:
 	""" Wraps two callables, one that “dumps” objects to and one that loads them from byte sequences, for use with 'hashset.build'."""
 
 
-	def __init__( self, *args ):
+	def __init__( self, *args, **kwargs ):
 		"""Requires either one or two arguments.
 
 		With two arguments, use the first as a callable to “dump“ objects to and
