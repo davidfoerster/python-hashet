@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys, os
-from . import hashset
+import hashset
+from .util.functional import comp, methodcaller
 
 import pickle
 pickle.DEFAULT_PROTOCOL = pickle.HIGHEST_PROTOCOL
@@ -36,32 +37,33 @@ def _open(path, mode='r'):
 	ValueError(
 		'Cannot use the special path {!r} with file mode {!r}. '
 		'Please use \'/dev/std*\' etc. instead.'
-			.format(path, mode))
+			.format(path, ''.join(mode)))
 
 
 def _build( in_path, out_path ):
 	from .picklers import string_pickler
 	with _open(in_path) as f_in, _open(out_path, 'wb') as f_out:
-		hashset.build(
-			(line.rstrip('\n') for line in f_in), f_out, pickler=string_pickler())
+		hashset.hashset.build(
+			map(methodcaller(str.rstrip, '\n'), f_in), f_out,
+			pickler=string_pickler())
 	return 0
 
 
 def _read( in_path ):
-	with hashset(in_path) as _set:
+	with hashset.hashset(in_path) as _set:
 		for item in _set:
 			print(item)
 	return 0
 
 
 def _test( in_path, *needles ):
-	with hashset(in_path) as _set:
+	with hashset.hashset(in_path) as _set:
 		if needles:
 			fneedles = None
 		else:
 			fneedles = sys.stdin
 			sys.stdin = None
-			needles = (s.rstrip('\n') for s in fneedles)
+			needles = map(methodcaller(str.rstrip, '\n'), fneedles)
 
 		found_any = True
 		try:
