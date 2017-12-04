@@ -10,8 +10,8 @@ def identity( x ):
 
 
 def pad_multiple_of( n, b, fill=b'\0' ):
-	b += fill * -(len(b) % -n)
-	return b
+	l = len(b)
+	return b.ljust(l - (l % -n), fill)
 
 
 def property_setter( fset, fget='_{}', doc=None, docref='fset' ):
