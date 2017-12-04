@@ -103,14 +103,14 @@ class bytes_pickler:
 class string_pickler(bytes_pickler):
 	"""Like its parent, but encodes instances of 'str' instead of byte sequences."""
 
-	def __init__( self, encoding='utf-8', *args, **kwargs ):
+	def __init__( self, encoding=None, *args, **kwargs ):
 		"""Initializes a new instance with a character encoding …
 
 		as accepted by 'str' and 'str.encode'. Other arguments are forwarded are
 		forwarded to the parent constructor.
 		"""
 		super().__init__(*args, **kwargs)
-		self.encoding = encoding
+		self.encoding = encoding or sys.getdefaultencoding()
 
 	def dump_single_convert( self, obj ):
 		return obj.encode(self.encoding)
