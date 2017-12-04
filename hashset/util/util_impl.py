@@ -9,11 +9,6 @@ def getitem( seq, idx, default ):
 	return seq[idx] if 0 <= idx < len(seq) else default
 
 
-def identity( x ):
-	"""Returns its only argument."""
-	return x
-
-
 def pad_multiple_of( n, b, fill=b'\0' ):
 	"""Pad the length of 'b' to a multiple of 'n' using 'fill'."""
 

@@ -1,5 +1,5 @@
 import itertools
-from .util_impl import identity
+from .functional import identity
 
 
 def saccumulate( start, iterable, _slice=None ):
