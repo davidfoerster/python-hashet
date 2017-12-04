@@ -31,3 +31,34 @@ class hashlib_proxy:
 
 	def __setstate__( self, state ):
 		self.__init__(*state)
+
+
+class pyhash_proxy:
+	accepted_types = (bytes, str)
+
+
+	def __init__( self, hash_name ):
+		self.name = hash_name
+		self.hasher = getattr(pyhash, hash_name)()
+
+
+	def __call__( self, data, pickler=None ):
+		if pickler is not None and not isinstance(data, self.accepted_types):
+			data = pickler(data)
+
+		return self.hasher(data)
+
+
+	def __getstate__( self ):
+		return (self.name,)
+
+
+	def __setstate__( self, state ):
+		self.__init__(*state)
+
+
+try:
+	import pyhash
+	default_hasher = pyhash_proxy('xx_64')
+except ImportError:
+	default_hasher = hashlib_proxy('md5')

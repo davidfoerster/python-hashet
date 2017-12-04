@@ -4,7 +4,7 @@ import pickle
 import hashset.util, hashset.util.iter
 from .header import header as hashset_header
 from .picklers import pickle_proxy, PickleError
-from .hashers import hashlib_proxy
+from .hashers import default_hasher
 
 
 class hashset:
@@ -92,7 +92,7 @@ class hashset:
 
 
 	@staticmethod
-	def build( iterable, file=None, hasher=hashlib_proxy('md5'),
+	def build( iterable, file=None, hasher=default_hasher,
 		pickler=pickle_proxy(pickle), load_factor=2/3
 	):
 		if isinstance(iterable, collections.abc.Set):
