@@ -39,21 +39,23 @@ def _open(path, mode='r'):
 			.format(path, mode))
 
 
-args = sys.argv[1:]
-if len(args) == 3 and args[0] == '--build':
+def _build( in_path, out_path ):
 	from .picklers import string_pickler
-	with _open(args[1]) as f_in, _open(args[2], 'wb') as f_out:
+	with _open(in_path) as f_in, _open(out_path, 'wb') as f_out:
 		hashset.build(
 			(line.rstrip('\n') for line in f_in), f_out, pickler=string_pickler())
+	return 0
 
-elif len(args) == 2 and args[0] == '--read':
-	with hashset(args[1]) as _set:
+
+def _read( in_path ):
+	with hashset(in_path) as _set:
 		for item in _set:
 			print(item)
+	return 0
 
-elif len(args) >= 2 and args[0] == '--test':
-	with hashset(args[1]) as _set:
-		needles = args[2:]
+
+def _test( in_path, *needles ):
+	with hashset(in_path) as _set:
 		if needles:
 			fneedles = None
 		else:
@@ -61,17 +63,28 @@ elif len(args) >= 2 and args[0] == '--test':
 			sys.stdin = None
 			needles = (s.rstrip('\n') for s in fneedles)
 
-		item = None
+		found_any = True
 		try:
-			for item in filter(_set.__contains__, needles):
-				print(item)
+			for item in needles:
+				if item in _set:
+					print(item)
+				else:
+					found_any = False
 		finally:
 			if fneedles is not None:
 				fneedles.close()
 
-		if item is None:
-			sys.exit(1)
+		return int(not found_any)
 
-else:
-	# TODO
-	raise Exception('Usage error')
+
+def _main( args ):
+	if len(args) >= 1 and args[0] in ('--build', '--read', '--test'):
+		rv = globals()['_' + args[0].lstrip('-')](*args[1:])
+		if rv != 0:
+			sys.exit(rv)
+	else:
+		# TODO
+		raise RuntimeError('Usage error')
+
+
+_main(sys.argv[1:])
