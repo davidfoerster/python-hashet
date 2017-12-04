@@ -7,16 +7,24 @@ from .util.iter import stareach
 
 
 class _vardata_hook:
-	def __init__( self, name ):
+	def __init__( self, name, doc=None ):
 		self.name = '_' + name
+		self.__doc__ = doc
 		self.fset = None
+
 
 	def setter( self, fset ):
 		self.fset = fset
+		if not self.__doc__:
+			doc = getattr(fset, '__doc__', None)
+			if doc:
+				self.__doc__ = doc
 		return self
+
 
 	def __get__( self, instance, owner ):
 		return getattr(instance, self.name)
+
 
 	def __set__( self, instance, value ):
 		old_value = self.__get__(instance, None)
