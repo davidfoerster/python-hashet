@@ -1,3 +1,5 @@
+"""Build, read, and probe hashets to/from files."""
+
 import sys, os, mmap
 import itertools, collections.abc
 import pickle

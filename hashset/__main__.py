@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 import sys, os
+import itertools, functools, collections
+import argparse, codecs
 import hashset
+from .hashers import hashlib_proxy, pyhash_proxy, default_hasher
+from .picklers import string_pickler, pickle_proxy
 from .util.functional import comp, methodcaller
 
 import pickle
@@ -40,7 +44,7 @@ def _open(path, mode='r'):
 			.format(path, ''.join(mode)))
 
 
-def _build( in_path, out_path ):
+def build( in_path, out_path ):
 	from .picklers import string_pickler
 	with _open(in_path) as f_in, _open(out_path, 'wb') as f_out:
 		hashset.hashset.build(
@@ -49,14 +53,14 @@ def _build( in_path, out_path ):
 	return 0
 
 
-def _read( in_path ):
+def dump( in_path ):
 	with hashset.hashset(in_path) as _set:
 		for item in _set:
 			print(item)
 	return 0
 
 
-def _test( in_path, *needles ):
+def probe( in_path, *needles ):
 	with hashset.hashset(in_path) as _set:
 		if needles:
 			fneedles = None
@@ -79,14 +83,46 @@ def _test( in_path, *needles ):
 		return int(not found_any)
 
 
-def _main( args ):
-	if len(args) >= 1 and args[0] in ('--build', '--read', '--test'):
-		rv = globals()['_' + args[0].lstrip('-')](*args[1:])
-		if rv != 0:
-			sys.exit(rv)
-	else:
-		# TODO
-		raise RuntimeError('Usage error')
 
 
-_main(sys.argv[1:])
+def make_argparse():
+	ap = argparse.ArgumentParser(description=hashset.__doc__, add_help=False)
+
+	actions = (ap
+		.add_argument_group('Actions',
+			'Available modes of operations. Select exactly one of these!')
+		.add_mutually_exclusive_group(required=True))
+	actions.add_argument('-b', '--build',
+		nargs=2, metavar=('ITEM-FILE', 'HASHSET-FILE'),
+		help='Build a new hash set from the lines of a file. '
+			'The special value \'-\' as a stand-in for standard input and output '
+			'respectively.')
+	actions.add_argument('-d', '--dump',
+		nargs=1, metavar='HASHSET-FILE',
+		help='Write out all items from a given hash set.')
+	actions.add_argument('-p', '--probe',
+		nargs='+', metavar=('HASHSET-FILE', 'ITEM'),
+		help='Probe the existence of a list of items in a hash set. '
+			'The item list is either the list of positional command-line arguments '
+			'or, in their absence, read from standard input one item per line.')
+
+	opt = ap.add_argument_group('Optional Arguments')
+	opt.add_argument('-h', '--help', action='help',
+		help='Show this help message and exit.')
+
+	return ap
+
+
+def main( args ):
+	args = make_argparse().parse_args(args)
+	action = ('build', 'dump', 'probe')
+	action = tuple(filter(lambda a: getattr(args, a) is not None, action))
+	assert len(action) == 1
+	action = action[0]
+
+	rv = globals()[action](*getattr(args, action))
+	if rv != 0:
+		sys.exit(rv)
+
+
+main(sys.argv[1:])
