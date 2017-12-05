@@ -19,7 +19,8 @@ def build( in_path, out_path, **kwargs ):
 
 		hashset.hashset.build(
 			map(util_io.strip_line_terminator, f_in), f_out,
-			pickler=codec_pickler.string_instance())
+			pickler=codec_pickler.string_instance(
+				kwargs.get('internal_encoding')))
 
 	return 0
 
@@ -56,7 +57,7 @@ def probe( in_path, *needles, **kwargs ):
 
 
 def make_argparse():
-	import argparse, locale
+	import argparse, locale, codecs
 	preferred_encoding = locale.getpreferredencoding()
 	ap = argparse.ArgumentParser(description=hashset.__doc__, add_help=False)
 
@@ -85,6 +86,11 @@ def make_argparse():
 	opt.add_argument('-h', '--help', action='help',
 		help='Show this help message and exit.')
 
+	p = ap.add_argument_group('Hashset Parameters',
+		'Parameters that influence hash set creation.')
+	p.add_argument('--internal-encoding', metavar='CHARSET',
+		type=codecs.lookup, default=codecs.lookup(preferred_encoding),
+		help='The internal encoding of the entries of the hash set file to build.')
 	return ap
 
 
