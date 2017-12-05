@@ -1,5 +1,5 @@
 import itertools
-from .functional import identity
+import hashset.util.functional as functional
 
 
 def saccumulate( start, iterable, _slice=None ):
@@ -42,7 +42,9 @@ def ichain( iterable, *suffix ):
 	return itertools.chain(iterable, suffix)
 
 
-def iconditional( iterable, pred=bool, func_true=identity, func_false=identity ):
+def iconditional( iterable, pred=bool, func_true=functional.identity,
+	func_false=functional.identity
+):
 	"""Returns an iterator that maps the items of 'iterable' using 'func_true' or 'func_false' based on the return value of the given predicate."""
 
 	if not callable(func_true):
