@@ -5,7 +5,7 @@ import hashset
 import hashset.util.io as util_io
 import hashset.util.functional as functional
 from .hashers import hashlib_proxy, pyhash_proxy, default_hasher
-from .picklers import string_pickler, pickle_proxy
+from .picklers import codec_pickler, pickle_proxy
 
 import pickle
 pickle.DEFAULT_PROTOCOL = pickle.HIGHEST_PROTOCOL
@@ -19,7 +19,7 @@ def build( in_path, out_path, **kwargs ):
 
 		hashset.hashset.build(
 			map(util_io.strip_line_terminator, f_in), f_out,
-			pickler=string_pickler())
+			pickler=codec_pickler.string_instance())
 
 	return 0
 

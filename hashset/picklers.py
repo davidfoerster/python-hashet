@@ -1,4 +1,5 @@
 import sys
+import locale, codecs
 from .header import header
 from .util.math import ceil_div
 
@@ -102,23 +103,42 @@ class bytes_pickler:
 
 #####################################################################
 
-class string_pickler(bytes_pickler):
-	"""Like its parent, but encodes instances of 'str' instead of byte sequences."""
+class codec_pickler(bytes_pickler):
+	"""Like its parent, but encodes objects to byte sequences using a codec."""
 
-	def __init__( self, encoding=None, *args, **kwargs ):
-		"""Initializes a new instance with a character encoding …
+	def __init__( self, codec, *args, **kwargs ):
+		"""Initializes a new instance with a codec name or a CodecInfo instance…
 
-		as accepted by 'str' and 'str.encode'. Other arguments are forwarded are
-		forwarded to the parent constructor.
+		(from the codecs module). Other arguments are forwarded are forwarded
+		to the parent constructor.
 		"""
+
 		super().__init__(*args, **kwargs)
-		self.encoding = encoding or sys.getdefaultencoding()
+
+		if isinstance(codec, str):
+			codec = codecs.lookup(codec)
+		self._encode = codec.encode
+		self._decode = codec.decode
+
 
 	def dump_single_convert( self, obj ):
-		return obj.encode(self.encoding)
+		return self._encode(obj)[0]
+
 
 	def load_single_convert( self, buf, offset, length=None ):
-		return str(super().load_single_convert(buf, offset, length), self.encoding)
+		return self._decode(super().load_single_convert(buf, offset, length))[0]
+
+
+	@classmethod
+	def string_instance( cls, codec=None, *args, **kwargs ):
+		"""Like the initializer but with a suitable default codec name…
+
+		taken from locale.getpreferredencoding."""
+
+		if codec is None:
+			codec = locale.getpreferredencoding(False)
+
+		return cls(codec, *args, **kwargs)
 
 
 #####################################################################
