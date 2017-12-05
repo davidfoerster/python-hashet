@@ -9,11 +9,12 @@ def getitem( seq, idx, default ):
 	return seq[idx] if 0 <= idx < len(seq) else default
 
 
-def pad_multiple_of( n, b, fill=b'\0' ):
+def pad_multiple_of( b, n, fill=b'\0' ):
 	"""Pad the length of 'b' to a multiple of 'n' using 'fill'."""
 
-	l = len(b)
-	return b.ljust(l - (l % -n), fill)
+	l = b if isinstance(b, int) else len(b)
+	l -= (l % -n)
+	return l if isinstance(b, int) else b.ljust(l - (l % -n), fill)
 
 
 def attrdeleter( name ):

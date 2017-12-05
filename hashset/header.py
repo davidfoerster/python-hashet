@@ -131,8 +131,7 @@ class header:
 						.format('\', \''.join(self._vardata_keys)))
 
 			self._vardata = (
-				util.pad_multiple_of(8,
-					pickle.dumps({ k: getattr(self, k) for k in self._vardata_keys })))
+				pickle.dumps({ k: getattr(self, k) for k in self._vardata_keys }))
 
 		return self._vardata
 
@@ -174,16 +173,16 @@ class header:
 		values toa void later issues.
 		"""
 
-		# Calculate index offset
-		assert len(self._magic) % 8 == 0
-		self.index_offset = (
-			len(self._magic) + self._struct.size + len(self.vardata(force)))
-
 		# Calculate int_size
 		if buckets is not None:
 			max_int = sum(map(len, buckets))
 			self.int_size = ceil_pow2(ceil_div(max_int.bit_length(), 8))
 			assert 0 <= self.int_size.bit_length() <= 8
+
+		# Calculate index offset
+		self.index_offset = util.pad_multiple_of(
+			len(self._magic) + self._struct.size + len(self.vardata(force)),
+			self.int_size)
 
 
 	def to_bytes( self, buf=None, buckets=None ):
@@ -201,7 +200,11 @@ class header:
 		buf[:len(magic)] = magic
 		self._struct.pack_into(buf, len(magic),
 			self._version, self.int_size, self.index_offset)
-		buf[len(magic) + self._struct.size:] = self.vardata()
+
+		vardata = self.vardata()
+		vardata_offset = len(magic) + self._struct.size
+		buf[vardata_offset : vardata_offset + len(vardata)] = vardata
+
 		return buf
 
 
