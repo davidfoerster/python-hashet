@@ -3,7 +3,7 @@ import sys, os
 import itertools, functools, collections, contextlib
 import hashset
 import hashset.util.io as util_io
-import hashset.util.functional as functional
+import hashset.util.iter as util_iter
 from .hashers import hashlib_proxy, pyhash_proxy, default_hasher
 from .picklers import codec_pickler, pickle_proxy
 
@@ -89,18 +89,18 @@ def make_argparse():
 
 
 def main( args ):
-	args = make_argparse().parse_args(args)
+	kwargs = vars(make_argparse().parse_args(args))
 	#print(args); return
-	action = ('build', 'dump', 'probe')
-	action = tuple(filter(
-		functional.comp(functional.is_not_none, functools.partial(getattr, args)),
-		action))
-	assert len(action) == 1
-	action = action[0]
 
-	rv = globals()[action](
-		*getattr(args, action),
-		external_encoding=args.external_encoding)
+	actions = ['build', 'dump', 'probe']
+	action_args = None
+	while actions and action_args is None:
+		action = actions.pop()
+		action_args = kwargs.pop(action)
+	util_iter.each(kwargs.__delitem__, actions)
+	del actions
+
+	rv = globals()[action](*action_args, **kwargs)
 	if rv != 0:
 		sys.exit(rv)
 
