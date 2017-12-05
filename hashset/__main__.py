@@ -20,7 +20,8 @@ def build( in_path, out_path, **kwargs ):
 		hashset.hashset.build(
 			map(util_io.strip_line_terminator, f_in), f_out,
 			pickler=codec_pickler.string_instance(
-				kwargs.get('internal_encoding')))
+				kwargs.get('internal_encoding')),
+			load_factor=kwargs['load_factor'])
 
 	return 0
 
@@ -54,6 +55,24 @@ def probe( in_path, *needles, **kwargs ):
 	return int(not found_any)
 
 
+def _parse_fraction( s, verifier=None ):
+	sep = min(filter((0).__le__, map(s.find, '/÷')), default=-1)
+	if sep < 0:
+		x = float(s)
+	else:
+		x = float(s[:sep]) / float(s[sep+1:])
+	if verifier is not None and not verifier(x):
+		raise ValueError('Illegal value: {:f}'.format(x))
+	return x
+
+
+class NamedMethod(collections.UserString):
+	def __init__( self, name, func ):
+		super().__init__(name)
+		self.func = func
+
+	def __call__( self, *args, **kwargs ):
+		return self.func(*args, **kwargs)
 
 
 def make_argparse():
@@ -93,6 +112,15 @@ def make_argparse():
 		type=codecs.lookup, default=codecs.lookup(preferred_encoding),
 		help='The internal encoding of the entries of the hash set file to build. '
 		'(default: {})'.format(preferred_encoding))
+	default_load_factor = 0.75
+	p.add_argument('--load-factor', metavar='FRACTION',
+		type=NamedMethod('float or fraction',
+			functools.partial(_parse_fraction, verifier=(0).__lt__)),
+		default=default_load_factor,
+		help='The load factor of the resulting hash set, a positive decimal or '
+			'fraction. (default: {:f})'
+				.format(default_load_factor))
+
 	return ap
 
 
