@@ -82,7 +82,8 @@ def make_argparse():
 	opt = ap.add_argument_group('Optional Arguments')
 	opt.add_argument('--encoding', '--external-encoding', metavar='CHARSET',
 		dest='external_encoding', default=preferred_encoding,
-		help='The external encoding when reading or writing text.')
+		help='The external encoding when reading or writing text. (default: {})'
+			.format(preferred_encoding))
 	opt.add_argument('-h', '--help', action='help',
 		help='Show this help message and exit.')
 
@@ -90,7 +91,8 @@ def make_argparse():
 		'Parameters that influence hash set creation.')
 	p.add_argument('--internal-encoding', metavar='CHARSET',
 		type=codecs.lookup, default=codecs.lookup(preferred_encoding),
-		help='The internal encoding of the entries of the hash set file to build.')
+		help='The internal encoding of the entries of the hash set file to build. '
+		'(default: {})'.format(preferred_encoding))
 	return ap
 
 
