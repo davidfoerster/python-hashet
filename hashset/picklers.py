@@ -25,9 +25,7 @@ class bytes_pickler:
 	'hashset.build'.
 	"""
 
-	def __init__( self, list_ctor=list, int_size=1, byteorder=header.byteorder,
-		**kwargs
-	):
+	def __init__( self, list_ctor=list, int_size=0, byteorder=header.byteorder ):
 		"""Initializes a new instance …
 
 		with 'list_ctor' the constructor to build new buckets when decoding,
@@ -72,11 +70,12 @@ class bytes_pickler:
 
 
 	def run_estimates( self, items ):
-		longest = max(items, key=len, default=None)
-		if longest is not None:
-			self.int_size = max(
-				self.get_int_size_for_val(len(self.dump_single_convert(longest))),
-				1)
+		if self.int_size <= 0:
+			longest = max(items, key=len, default=None)
+			if longest is not None:
+				self.int_size = max(
+					self.get_int_size_for_val(len(self.dump_single_convert(longest))),
+					1)
 
 
 	def _get_length( self, buf, offset=0 ):
@@ -147,7 +146,7 @@ class pickle_proxy:
 	""" Wraps two callables, one that “dumps” objects to and one that loads them from byte sequences, for use with 'hashset.build'."""
 
 
-	def __init__( self, *args, **kwargs ):
+	def __init__( self, *args ):
 		"""Requires either one or two arguments.
 
 		With two arguments, use the first as a callable to “dump“ objects to and

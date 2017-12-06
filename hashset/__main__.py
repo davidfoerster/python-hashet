@@ -17,8 +17,9 @@ def build( in_path, out_path, **kwargs ):
 
 		hashset.hashset.build(
 			map(util_io.strip_line_terminator, f_in), f_out,
-			pickler=codec_pickler.string_instance(
-				kwargs.get('internal_encoding')),
+			kwargs['hash'].get_instance(),
+			kwargs['pickler'].get_instance(
+				codec=kwargs['internal_encoding'], int_size=kwargs['item_int_size']),
 			kwargs['load_factor'], int_size=kwargs['index_int_size'])
 
 	return 0
@@ -75,6 +76,28 @@ class NamedMethod(collections.UserString):
 		return self.func(*args, **kwargs)
 
 
+class ArgumentChoice(collections.UserString):
+	def __init__( self, name, _type ):
+		super().__init__(name)
+		self.type = _type
+
+
+	def __eq__( self, other ):
+		return self is other
+
+
+	def get_instance( self, *args, **kwargs ):
+		return self.type(*args, **kwargs)
+
+
+	@classmethod
+	def update_choices( cls, value_func, default=None ):
+		cls.choices.update(
+			(item[0], cls(*value_func(*item))) for item in cls.choices.items())
+		if default is not None:
+			cls.default = cls.choices[default]
+
+
 def make_argparse():
 	import argparse, locale, codecs
 	from .hashers import hashlib_proxy, pyhash_proxy, default_hasher
@@ -120,6 +143,10 @@ def make_argparse():
 		help='The size (in bytes) of the integer, a power of 2, used to store '
 			'offsets in the bucket index. This may save some time and memory during '
 			'hash set construction. (default: determine optimal value)')
+	p.add_argument('--item-int-size',
+		type=int, metavar='N', default=0,
+		help='The size (in bytes) of the integers used to store the length of the '
+			'(encoded) hash set items. (default: determine optimal value)')
 	default_load_factor = 0.75
 	p.add_argument('--load-factor', metavar='FRACTION',
 		type=NamedMethod('float or fraction',
@@ -128,6 +155,36 @@ def make_argparse():
 		help='The load factor of the resulting hash set, a positive decimal or '
 			'fraction. (default: {:f})'
 				.format(default_load_factor))
+
+
+	class PicklerChoice(ArgumentChoice):
+		choices = {
+			'string': codec_pickler.string_instance,
+			'pickle': lambda **kwargs: pickle_proxy(pickle)
+		}
+	PicklerChoice.update_choices(util.as_tuple, 'string')
+	p.add_argument('--pickler',
+		type=fpartial(dict.get, PicklerChoice.choices),
+		choices=PicklerChoice.choices.values(),
+		default=PicklerChoice.default,
+		help='''The "pickler" used to encode hash set items; either 'string'
+			encoding for strings (default) or the 'pickle' encoding working on a
+			wide array of Python objects.''')
+
+
+	class HashChoice(ArgumentChoice):
+		def get_instance( self ):
+			return super().get_instance(self.data)
+
+		choices = { a: hashlib_proxy for a in hashlib_proxy.algorithms_available }
+		choices.update(
+			(a, pyhash_proxy) for a in pyhash_proxy.algorithms_available)
+	HashChoice.update_choices(util.as_tuple, default_hasher.name)
+	p.add_argument('--hash', metavar='ALGORITHM',
+		type=fpartial(dict.get, HashChoice.choices),
+		choices=HashChoice.choices.values(), default=HashChoice.default,
+		help='The hash algorithm used to assign items to buckets. (default: {})'
+			.format(HashChoice.default))
 
 	return ap
 
