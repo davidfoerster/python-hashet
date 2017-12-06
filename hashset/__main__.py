@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 import sys, os
-import itertools, functools, collections, contextlib
+import collections
+import contextlib
 import hashset
+import hashset.util as util
 import hashset.util.io as util_io
 import hashset.util.iter as util_iter
-from .hashers import hashlib_proxy, pyhash_proxy, default_hasher
-from .picklers import codec_pickler, pickle_proxy
-
-import pickle
-pickle.DEFAULT_PROTOCOL = pickle.HIGHEST_PROTOCOL
+from functools import partial as fpartial
 
 
 def build( in_path, out_path, **kwargs ):
 	with contextlib.ExitStack() as es:
-		f_in = es.enter_context(util_io.open(in_path,
-			encoding=kwargs.get('external_encoding')))
+		f_in = es.enter_context(util_io.open(
+			in_path, encoding=kwargs['external_encoding']))
 		f_out = es.enter_context(util_io.open(out_path, 'wb'))
 
 		hashset.hashset.build(
@@ -27,42 +25,44 @@ def build( in_path, out_path, **kwargs ):
 
 
 def dump( in_path, **kwargs ):
-	with hashset.hashset(in_path) as _set:
-		for item in _set:
-			print(item)
+	with contextlib.ExitStack() as es:
+		util_iter.each(
+			fpartial(print, file=es.enter_context(
+				util_io.open_stdstream('stdout', kwargs['external_encoding']))),
+			es.enter_context(hashset.hashset(in_path)))
+
 	return 0
 
 
 def probe( in_path, *needles, **kwargs ):
-	with hashset.hashset(in_path) as _set:
-		if needles:
-			fneedles = None
-		else:
-			fneedles = util_io.open('-', encoding=kwargs.get('external_encoding'))
-			needles = map(util_io.strip_line_terminator, fneedles)
+	with contextlib.ExitStack() as es:
+		if not needles:
+			needles = map(util_io.strip_line_terminator,
+				es.enter_context(util_io.open(
+					'-', encoding=kwargs['external_encoding'])))
+
+		f = es.enter_context(
+			util_io.open_stdstream('stdout', kwargs['external_encoding']))
+		_set = es.enter_context(hashset.hashset(in_path))
 
 		found_any = True
-		try:
-			for item in needles:
-				if item in _set:
-					print(item)
-				else:
-					found_any = False
-		finally:
-			if fneedles is not None:
-				fneedles.close()
+		for item in needles:
+			if item in _set:
+				print(item, file=f)
+			else:
+				found_any = False
 
 	return int(not found_any)
 
 
 def _parse_fraction( s, verifier=None ):
-	sep = min(filter((0).__le__, map(s.find, '/÷')), default=-1)
-	if sep < 0:
+	split = min(filter((0).__le__, map(s.find, '/÷')), default=-1)
+	if split < 0:
 		x = float(s)
 	else:
-		x = float(s[:sep]) / float(s[sep+1:])
+		x = float(s[:split]) / float(s[split+1:])
 	if verifier is not None and not verifier(x):
-		raise ValueError('Illegal value: {:f}'.format(x))
+		raise ValueError('Illegal value {:f}, derived from {!r}'.format(x, s))
 	return x
 
 
@@ -77,6 +77,9 @@ class NamedMethod(collections.UserString):
 
 def make_argparse():
 	import argparse, locale, codecs
+	from .hashers import hashlib_proxy, pyhash_proxy, default_hasher
+	from .picklers import codec_pickler, pickle_proxy
+
 	preferred_encoding = locale.getpreferredencoding()
 	ap = argparse.ArgumentParser(description=hashset.__doc__, add_help=False)
 
@@ -115,7 +118,7 @@ def make_argparse():
 	default_load_factor = 0.75
 	p.add_argument('--load-factor', metavar='FRACTION',
 		type=NamedMethod('float or fraction',
-			functools.partial(_parse_fraction, verifier=(0).__lt__)),
+			fpartial(_parse_fraction, verifier=(0).__lt__)),
 		default=default_load_factor,
 		help='The load factor of the resulting hash set, a positive decimal or '
 			'fraction. (default: {:f})'
@@ -125,8 +128,10 @@ def make_argparse():
 
 
 def main( args ):
+	import pickle
+	pickle.DEFAULT_PROTOCOL = pickle.HIGHEST_PROTOCOL
+
 	kwargs = vars(make_argparse().parse_args(args))
-	#print(args); return
 
 	actions = ['build', 'dump', 'probe']
 	action_args = None

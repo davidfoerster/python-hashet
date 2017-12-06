@@ -30,6 +30,8 @@ def methodcaller( func, *args ):
 
 is_not_none = functools.partial(operator.is_not, None)
 
+itemgetter = tuple(map(operator.itemgetter, range(2)))
+
 
 def project_out( *funcs ):
 	return lambda x: tuple(f(x) for f in funcs)

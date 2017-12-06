@@ -1,4 +1,4 @@
-import sys, os, io
+import sys, os, io, codecs
 from .functional import comp, project_out
 
 
@@ -76,6 +76,31 @@ def open( path, mode='r', buffering=-1, encoding=None, errors=None,
 		if buffering == 0:
 			raise ValueError('Unbuffered access is incompatible with text mode.')
 		f = io.TextIOWrapper(f, encoding, errors, newline, buffering == 1)
+
+	return f
+
+
+def open_stdstream( name, encoding=None, errors='strict', newlines=None,
+	line_buffering=False
+):
+	if name != 'stdin' and name != 'stdout':
+		raise ValueError('Unsupported stream name: {!r}'.format(name))
+
+	f = getattr(sys, name)
+	assert isinstance(f, io.TextIOBase), \
+		"{0} has type {1.__module__}.{1.__qualname__} which doesn't derive from {2.__module__}.{2.__qualname__}".format(name, type(f), io.TextIOBase)
+	setattr(sys, name, None)
+
+	matches = (
+		errors == f.errors and newlines == f.newlines and
+		line_buffering == f.line_buffering)
+	if matches and encoding is not None and encoding != f.encoding:
+		encoding = codecs.lookup(encoding).name
+		f_encoding = codecs.lookup(f.encoding).name
+		matches = encoding == f_encoding
+	if not matches:
+		f.flush()
+		f = io.TextIOWrapper(f.detach(), encoding, errors, newlines, line_buffering)
 
 	return f
 

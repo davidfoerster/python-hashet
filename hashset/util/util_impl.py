@@ -1,6 +1,10 @@
 import operator
 
 
+def as_tuple( *args ):
+	return args
+
+
 def getitem( seq, idx, default ):
 	"""
 	Returns the item at the given index from a sequence if the index lies within

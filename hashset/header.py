@@ -1,9 +1,10 @@
 import sys, math, itertools
 import struct, pickle
 import hashset.util as util
-from .util import property_setter
+import hashset.util.iter as util_iter
+import hashset.util.functional as functional
+from functools import partial as fpartial
 from .util.math import ceil_div, is_pow2, ceil_pow2
-from .util.iter import stareach
 
 
 class _vardata_hook:
@@ -71,7 +72,7 @@ class header:
 		self._bucket_mask = None
 
 
-	@property_setter
+	@util.property_setter
 	def int_size( self, n ):
 		"""A size (in bytes) used to represent section offsets."""
 		if not (0 <= n <= 128 and is_pow2(n)):
@@ -130,8 +131,9 @@ class header:
 					'One or more of \'{}\' were never assigned'
 						.format('\', \''.join(self._vardata_keys)))
 
-			self._vardata = (
-				pickle.dumps({ k: getattr(self, k) for k in self._vardata_keys }))
+			self._vardata = pickle.dumps(dict(map(
+				functional.project_out(functional.identity, fpartial(getattr, self)),
+				self._vardata_keys)))
 
 		return self._vardata
 
@@ -246,5 +248,5 @@ class header:
 
 		h = cls(var.pop('hasher'), var.pop('pickler'), s.pop('int_size'))
 		h._element_count = var.pop('element_count')
-		stareach(h.__setattr__, itertools.chain(s.items(), var.items()))
+		util_iter.stareach(h.__setattr__, itertools.chain(s.items(), var.items()))
 		return h

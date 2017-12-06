@@ -165,4 +165,9 @@ class hashset:
 
 		buckets = list(
 			util.iter.iconditional(buckets, bool, pickler.dump_bucket, b''))
-		header.to_file(file, buckets)
+
+		if file is not None:
+			header.to_file(file, buckets)
+			return file
+		else:
+			return buckets
