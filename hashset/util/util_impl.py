@@ -2,6 +2,7 @@ import operator
 
 
 def as_tuple( *args ):
+	"""Returns the argument list as a tuple."""
 	return args
 
 

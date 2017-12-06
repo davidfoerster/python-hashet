@@ -23,6 +23,19 @@ open_flags_map.update(map(
 def open( path, mode='r', buffering=-1, encoding=None, errors=None,
 	newline=None
 ):
+	"""Similar to the eponymous built-in method but treats the path '-' specially.
+
+	If '-' is specified as path, use the underlying raw file object of sys.stdin
+	or sys.stdout depending on the selected access mode. The raw file object is
+	wrapped in a file buffer and text file wrapper according to the other
+	options. The original file objects are detached and their entry in the sys
+	module set to None.
+
+	Not all combinations of access modes and stdin/stdout are guaranteed to be
+	compatible in which case a ValueError is raised and the original value of
+	stdin/stdout in the sys module is _not_ restored.
+	"""
+
 	smode = set(mode)
 	if 'b' not in smode:
 		smode.add('t')
@@ -83,6 +96,14 @@ def open( path, mode='r', buffering=-1, encoding=None, errors=None,
 def open_stdstream( name, encoding=None, errors='strict', newlines=None,
 	line_buffering=False
 ):
+	"""Use either stdin or stdout of the 'sys' module with the given options.
+
+	If the given options don't match of the selected existing stream, its
+	underlying buffer object is wrapped into a new text file wrapper object.
+	The original stream is detached from its buffer and the respective attribute
+	in the sys module is set to None.
+	"""
+
 	if name != 'stdin' and name != 'stdout':
 		raise ValueError('Unsupported stream name: {!r}'.format(name))
 
@@ -106,4 +127,5 @@ def open_stdstream( name, encoding=None, errors='strict', newlines=None,
 
 
 def strip_line_terminator( s, linesep=os.linesep ):
+	"""Removes the given suffix from a string."""
 	return s[0:len(s)-len(linesep)] if s.endswith(linesep) else s
