@@ -48,7 +48,7 @@ def open( path, mode='r', buffering=-1, encoding=None, errors=None,
 	if path != '-':
 		return io.open(path, mode, buffering, encoding, errors, newline)
 
-	amode = frozenset(smode.intersection('rwa+'))
+	amode = frozenset(smode).intersection('rwa+')
 	if amode not in open_flags_map:
 		raise ValueError(
 			'Conflicting or missing access mode flags: {!r}'
@@ -60,12 +60,12 @@ def open( path, mode='r', buffering=-1, encoding=None, errors=None,
 			f = sys.stdin
 			sys.stdin = None
 			buftype = io.BufferedReader
-		elif 'w' in amode:
+		elif 'w' in amode or 'a' in amode:
 			f = sys.stdout
 			sys.stdout = None
 			buftype = io.BufferedWriter
 	if f is None:
-		ValueError(
+		raise ValueError(
 			'Cannot use the special path {!r} with file mode {!r}. '
 			'Please use \'/dev/std*\' etc. instead.'
 				.format(path, mode))
@@ -74,6 +74,12 @@ def open( path, mode='r', buffering=-1, encoding=None, errors=None,
 		f = f.detach()
 	while isinstance(f, io.BufferedIOBase):
 		f = f.detach()
+
+	if amode != frozenset(f.mode).intersection('rwa+'):
+		raise ValueError(
+			'The requested access mode {!r} is incompatible with the access mode '
+			'{!r} of the existing file object for {}.'
+				.format(mode, f.mode, f.name))
 
 	if buffering == 0 or buffering > 1:
 		bufsize = buffering
