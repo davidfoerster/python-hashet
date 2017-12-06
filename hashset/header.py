@@ -55,7 +55,7 @@ class header:
 	pickler.__doc__ = """The pickler to use for this hash set. (See 'hashset.build' for a description.)"""
 
 
-	def __init__( self, hasher, pickler, int_size=8 ):
+	def __init__( self, hasher, pickler, int_size=0 ):
 		"""
 		Initializes a header instance with a hasher, a pickler and a size (in
 		bytes) used to represent section offsets.
@@ -176,7 +176,7 @@ class header:
 		"""
 
 		# Calculate int_size
-		if buckets is not None:
+		if self.int_size <= 0 and buckets is not None:
 			max_int = sum(map(len, buckets))
 			self.int_size = ceil_pow2(ceil_div(max_int.bit_length(), 8))
 			assert 0 <= self.int_size.bit_length() <= 8

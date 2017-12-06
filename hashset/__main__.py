@@ -19,7 +19,7 @@ def build( in_path, out_path, **kwargs ):
 			map(util_io.strip_line_terminator, f_in), f_out,
 			pickler=codec_pickler.string_instance(
 				kwargs.get('internal_encoding')),
-			load_factor=kwargs['load_factor'])
+			kwargs['load_factor'], int_size=kwargs['index_int_size'])
 
 	return 0
 
@@ -115,6 +115,11 @@ def make_argparse():
 		type=codecs.lookup, default=codecs.lookup(preferred_encoding),
 		help='The internal encoding of the entries of the hash set file to build. '
 		'(default: {})'.format(preferred_encoding))
+	p.add_argument('--index-int-size',
+		type=int, metavar='N', default=0,
+		help='The size (in bytes) of the integer, a power of 2, used to store '
+			'offsets in the bucket index. This may save some time and memory during '
+			'hash set construction. (default: determine optimal value)')
 	default_load_factor = 0.75
 	p.add_argument('--load-factor', metavar='FRACTION',
 		type=NamedMethod('float or fraction',

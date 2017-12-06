@@ -120,7 +120,7 @@ class hashset:
 
 	@staticmethod
 	def build( iterable, file=None, hasher=default_hasher,
-		pickler=pickle_proxy(pickle), load_factor=2/3
+		pickler=pickle_proxy(pickle), load_factor=2/3, **header_kwargs
 	):
 		"""Builds a new hash set based on the items of a given iterable and saves the resulting data set to a buffer, typically backed by a file.
 
@@ -141,7 +141,7 @@ class hashset:
 			_set = frozenset(iterable)
 		del iterable
 
-		header = hashset_header(hasher, pickler, 1)
+		header = hashset_header(hasher, pickler, **header_kwargs)
 		header.set_element_count(len(_set), load_factor)
 		header.run_estimates(_set)
 
