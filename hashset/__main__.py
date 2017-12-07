@@ -39,8 +39,8 @@ def probe( in_path, *needles, quiet=False, **kwargs ):
 	with contextlib.ExitStack() as es:
 		if not needles:
 			needles = map(util_io.strip_line_terminator,
-				es.enter_context(util_io.open(
-					'-', encoding=kwargs['external_encoding'])))
+				es.enter_context(util_io.open_stdstream(
+					'stdin', encoding=kwargs['external_encoding'])))
 
 		_set = es.enter_context(hashset.hashset(in_path))
 
