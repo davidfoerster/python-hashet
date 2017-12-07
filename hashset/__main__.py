@@ -109,7 +109,7 @@ def make_argparse():
 		formatter_class=argparse.RawDescriptionHelpFormatter,
 		epilog='Author and copyright: David Foerster, 2017\n\n'
 			'Source code repository and issue tracker:\n'
-			'https://github.com/davidfoerster/python-hashet')
+			'https://github.com/davidfoerster/python-hashset')
 
 	actions = (ap
 		.add_argument_group('Actions',
