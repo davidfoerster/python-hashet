@@ -1,0 +1,58 @@
+usage: hashset.py
+                  (-b ITEM-FILE HASHSET-FILE | -d HASHSET-FILE | -p HASHSET-FILE [ITEM ...])
+                  [--encoding CHARSET] [-h] [--internal-encoding CHARSET]
+                  [--index-int-size N] [--item-int-size N]
+                  [--load-factor FRACTION] [--pickler {pickle,string}]
+                  [--hash ALGORITHM]
+
+Build, read, and probe hashets to/from files.
+
+Actions:
+  Available modes of operations. Select exactly one of these!
+
+  -b ITEM-FILE HASHSET-FILE, --build ITEM-FILE HASHSET-FILE
+                        Build a new hash set from the lines of a file. The
+                        special value '-' as a stand-in for standard input and
+                        output respectively.
+  -d HASHSET-FILE, --dump HASHSET-FILE
+                        Write out all items from a given hash set.
+  -p HASHSET-FILE [ITEM ...], --probe HASHSET-FILE [ITEM ...]
+                        Probe the existence of a list of items in a hash set.
+                        The item list is either the list of positional
+                        command-line arguments or, in their absence, read from
+                        standard input one item per line.
+
+Optional Arguments:
+  --encoding CHARSET, --external-encoding CHARSET
+                        The external encoding when reading or writing text.
+                        (default: UTF-8)
+  -h, --help            Show this help message and exit.
+
+Hashset Parameters:
+  Parameters that influence hash set creation.
+
+  --internal-encoding CHARSET
+                        The internal encoding of the entries of the hash set
+                        file to build. (default: UTF-8)
+  --index-int-size N    The size (in bytes) of the integer, a power of 2, used
+                        to store offsets in the bucket index. This may save
+                        some time and memory during hash set construction.
+                        (default: determine optimal value)
+  --item-int-size N     The size (in bytes) of the integers used to store the
+                        length of the (encoded) hash set items. (default:
+                        determine optimal value)
+  --load-factor FRACTION
+                        The load factor of the resulting hash set, a positive
+                        decimal or fraction. (default: 0.75)
+  --pickler {pickle,string}
+                        The "pickler" used to encode hash set items; either
+                        'string' encoding for strings (default) or the
+                        'pickle' encoding working on a wide array of Python
+                        objects.
+  --hash ALGORITHM      The hash algorithm used to assign items to buckets.
+                        (default: xx_64)
+
+Author and copyright: David Foerster, 2017
+
+Source code repository and issue tracker:
+https://github.com/davidfoerster/python-hashet
