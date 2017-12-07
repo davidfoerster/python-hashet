@@ -35,23 +35,24 @@ def dump( in_path, **kwargs ):
 	return 0
 
 
-def probe( in_path, *needles, **kwargs ):
+def probe( in_path, *needles, quiet=False, **kwargs ):
 	with contextlib.ExitStack() as es:
 		if not needles:
 			needles = map(util_io.strip_line_terminator,
 				es.enter_context(util_io.open(
 					'-', encoding=kwargs['external_encoding'])))
 
-		f = es.enter_context(
-			util_io.open_stdstream('stdout', kwargs['external_encoding']))
 		_set = es.enter_context(hashset.hashset(in_path))
 
-		found_any = True
-		for item in needles:
-			if item in _set:
+		if quiet:
+			found_any = any(map(_set.__contains__, needles))
+		else:
+			f = es.enter_context(
+				util_io.open_stdstream('stdout', kwargs['external_encoding']))
+			found_any = False
+			for item in filter(_set.__contains__, needles):
+				found_any = True
 				print(item, file=f)
-			else:
-				found_any = False
 
 	return int(not found_any)
 
@@ -130,6 +131,10 @@ def make_argparse():
 			'or, in their absence, read from standard input one item per line.')
 
 	opt = ap.add_argument_group('Optional Arguments')
+	opt.add_argument('-q', '--quiet',
+		action='store_true', default=False,
+		help="Don't print matched items; only report success through the exit "
+			'status.')
 	opt.add_argument('--encoding', '--external-encoding', metavar='CHARSET',
 		dest='external_encoding', default=preferred_encoding,
 		help='The external encoding when reading or writing text. (default: {})'
