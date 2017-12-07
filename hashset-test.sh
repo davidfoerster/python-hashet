@@ -24,6 +24,8 @@ printf '\n%s:\n' 'Dump'
 "${p[@]}" --dump "$h" ||
 	rv=$(($rv | $?))
 
+shift
+set -- "$@" "this string doesn't exist"
 printf '\n%s:\n' 'Probe (command-line)'
 "${p[@]}" --probe "$h" "$@" ||
 	rv=$(($rv | $?))
