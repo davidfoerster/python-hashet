@@ -104,7 +104,12 @@ def make_argparse():
 	from .picklers import codec_pickler, pickle_proxy
 
 	preferred_encoding = locale.getpreferredencoding()
-	ap = argparse.ArgumentParser(description=hashset.__doc__, add_help=False)
+	ap = argparse.ArgumentParser(
+		description=hashset.__doc__, add_help=False,
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		epilog='Author and copyright: David Foerster, 2017\n\n'
+			'Source code repository and issue tracker:\n'
+			'https://github.com/davidfoerster/python-hashet')
 
 	actions = (ap
 		.add_argument_group('Actions',
@@ -153,7 +158,7 @@ def make_argparse():
 			fpartial(_parse_fraction, verifier=(0).__lt__)),
 		default=default_load_factor,
 		help='The load factor of the resulting hash set, a positive decimal or '
-			'fraction. (default: {:f})'
+			'fraction. (default: {:.2f})'
 				.format(default_load_factor))
 
 
