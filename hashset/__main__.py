@@ -10,17 +10,26 @@ from functools import partial as fpartial
 
 
 def build( in_path, out_path, **kwargs ):
-	with contextlib.ExitStack() as es:
-		f_in = es.enter_context(util_io.open(
-			in_path, encoding=kwargs['external_encoding']))
-		f_out = es.enter_context(util_io.open(out_path, 'wb'))
+	pickler = kwargs['pickler'].get_instance(
+		codec=kwargs['internal_encoding'],
+		external_encoding=kwargs['external_encoding'],
+		int_size=kwargs['item_int_size'])
 
-		hashset.hashset.build(
-			map(util_io.strip_line_terminator, f_in), f_out,
-			kwargs['hash'].get_instance(),
-			kwargs['pickler'].get_instance(
-				codec=kwargs['internal_encoding'], int_size=kwargs['item_int_size']),
-			kwargs['load_factor'], int_size=kwargs['index_int_size'])
+	in_mode = 'r'
+	linesep = os.linesep
+	_set = hashset.hashset(
+		dict(pickler=pickler, hasher=kwargs['hash'].get_instance(),
+			int_size=kwargs['index_int_size']),
+		kwargs['load_factor'])
+
+	with contextlib.ExitStack() as es:
+		_set.update(map(
+			fpartial(util_io.strip_line_terminator, linesep=linesep),
+			es.enter_context(util_io.open(
+				in_path, in_mode, encoding=kwargs['external_encoding']))))
+
+	with util_io.open(out_path, 'wb') as f_out:
+		_set.to_file(f_out)
 
 	return 0
 

@@ -43,9 +43,14 @@ def methodcaller( func, *args ):
 		return operator.methodcaller(func, *args)
 
 
+is_none = functools.partial(operator.is_, None)
 is_not_none = functools.partial(operator.is_not, None)
 
 itemgetter = tuple(map(operator.itemgetter, range(2)))
+
+
+def instance_tester( _type ):
+	return lambda x: isinstance(x, _type)
 
 
 def project_out( *funcs ):

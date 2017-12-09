@@ -35,7 +35,7 @@ class _vardata_hook:
 			else:
 				self.fset(instance, value)
 
-			instance._vardata = None
+			instance.reevaluate()
 
 
 class header:
@@ -48,7 +48,7 @@ class header:
 	_struct = struct.Struct('=BB 2x I')
 	_struct_keys = ('version', 'int_size', 'index_offset')
 	_vardata_keys = ('element_count', 'bucket_count', 'hasher', 'pickler')
-	vars().update({ k: _vardata_hook(k) for k in _vardata_keys[1:] })
+	vars().update({ k: _vardata_hook(k) for k in _vardata_keys })
 
 	hasher.__doc__ = """The hasher to use for this hash set. (See 'hashset.build' for a description.)"""
 
@@ -69,7 +69,6 @@ class header:
 		self._pickler = pickler
 		self._element_count = None
 		self._bucket_count = None
-		self._bucket_mask = None
 
 
 	@util.property_setter
@@ -80,38 +79,6 @@ class header:
 			'int_size must be a power of 2 between 0 and 128, not {:d}'.format(n))
 
 		self._int_size = n
-
-
-	@property
-	def element_count( self ):
-		"""The number of elements in this hash set."""
-		return self._element_count
-
-	def set_element_count( self, n, load_factor=1 ):
-		assert n >= 0
-		assert load_factor > 0
-		self._element_count = n
-
-		if n > 0:
-			bc1 = math.ceil(n / load_factor)
-			bc2 = 1 << (bc1.bit_length() - 1)
-			bc2 <<= bc1 != bc2
-			self.bucket_count = bc2
-		else:
-			self.bucket_count = 0
-
-
-	@bucket_count.setter
-	def bucket_count( self, n ):
-		"""The number if buckets in this hash set."""
-
-		if not (n >= 0 and is_pow2(n)):
-			raise ValueError(
-			'Bucket count must be a non-negative power of 2, not {:d}'.format(n))
-
-		self._bucket_count = n
-		self._bucket_mask = max(n - 1, 0)
-		self._vardata = None
 
 
 	def reevaluate( self ):
@@ -138,9 +105,8 @@ class header:
 		return self._vardata
 
 
-	def get_bucket_idx( self, obj ):
-		"""Returns the index of the bucket for the given object."""
-		return self.hasher(obj, self.pickler.dump_single) & self._bucket_mask
+	def hash( self, obj ):
+		return self.hasher(obj, self.pickler.dump_single)
 
 
 	def value_offset( self ):
@@ -208,14 +174,6 @@ class header:
 		buf[vardata_offset : vardata_offset + len(vardata)] = vardata
 
 		return buf
-
-
-	def to_file( self, file, buckets=None ):
-		file.write(self.to_bytes(None, buckets))
-		if buckets:
-			util.iter.each(file.write, map(self.int_to_bytes,
-				util.iter.saccumulate(0, map(len, buckets), slice(len(buckets) - 1))))
-			util.iter.each(file.write, buckets)
 
 
 	@classmethod

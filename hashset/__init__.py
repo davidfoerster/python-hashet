@@ -1,12 +1,14 @@
 """Build, read, and probe hashets to/from files."""
 
 import sys, os, mmap
-import itertools, collections.abc
+import math, itertools, collections.abc
 import pickle
 import hashset.util, hashset.util.iter
+import hashset.util.functional as functional
 from .header import header as hashset_header
 from .picklers import pickle_proxy, PickleError
 from .hashers import default_hasher
+from .util.math import is_pow2, ceil_pow2
 
 
 class hashset:
@@ -15,65 +17,91 @@ class hashset:
 	Such a buff is typically backed by a memory-mapped file.
 	"""
 
+	_default_header_args = dict(
+		hasher=default_hasher, pickler=pickle_proxy(pickle))
 
-	def __init__( self, buf ):
+
+	def __init__( self, _from=None, load_factor=2/3 ):
 		"""Initialize a new hashset instance with a backing buffer.
 
 		The buffer may be a path name or a file descriptor that serves as a
 		reference to construct a memory-mapping of the referenced file.
 		"""
 
-		if isinstance(buf, str):
-			fd = os.open(buf, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
-			try:
-				buf = self._open_mmap(fd)
-			finally:
-				os.close(fd)
-		if isinstance(buf, int):
-			if 0 <= buf < 1<<31:
-				buf = self._open_mmap(buf)
-			else:
-				raise ValueError('Invalid file descriptor: {:d}'.format(buf))
+		self.load_factor = load_factor
 
-		self._mmap = buf if isinstance(buf, mmap.mmap) else None
-		self.buf = memoryview(buf)
-		self.header = hashset_header.from_bytes(self.buf)
-		self.value_offset = self.header.value_offset()
-		self._buckets = []
-		self._buckets_complete = False
-		self.buckets_idx = (
-			self.buf[self.header.index_offset : self.value_offset]
-				.cast('BHILQ'[self.header.int_size.bit_length() - 1]))
+		if _from is None or isinstance(_from, collections.abc.Mapping):
+			kwargs = dict(self._default_header_args)
+			if _from is not None:
+				kwargs.update(_from)
+			pargs = (kwargs.pop('hasher'), kwargs.pop('pickler'))
+			self._header = hashset_header(*pargs, **kwargs)
+			self._buckets = []
+			self._size = 0
+			self._buckets_complete = True
+			self._hash_mask = 0
+
+			self._mmap = None
+			self.buf = None
+			self._value_offset = None
+			self.buckets_idx = None
+
+		else:
+			if isinstance(_from, str):
+				fd = os.open(_from, os.O_RDONLY | getattr(os, 'O_BINARY', 0))
+				try:
+					_from = self._open_mmap(fd)
+				finally:
+					os.close(fd)
+			if isinstance(_from, int):
+				if 0 <= _from < 1<<31:
+					_from = self._open_mmap(_from)
+				else:
+					raise ValueError('Invalid file descriptor: {:d}'.format(_from))
+
+			self._mmap = _from if isinstance(_from, mmap.mmap) else None
+			self.buf = _from if isinstance(_from, memoryview) else memoryview(_from)
+			self._header = hashset_header.from_bytes(self.buf)
+			self._size = self._header.element_count
+			self._buckets = [None] * self._header.bucket_count
+			self._hash_mask = self._to_hash_mask(len(self._buckets))
+			self._buckets_complete = False
+			self._value_offset = self._header.value_offset()
+			self.buckets_idx = (
+				self.buf[self._header.index_offset : self._value_offset]
+					.cast('BHILQ'[self._header.int_size.bit_length() - 1]))
 
 
-	def _extend_buckets( self, size=None ):
-		if size is None:
-			size = self.header.bucket_count
-		if len(self._buckets) < size:
-			self._buckets.extend(
-				itertools.repeat(None, size - len(self._buckets)))
+	@staticmethod
+	def _open_mmap( fd ):
+		return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
+
+
+	@staticmethod
+	def _to_hash_mask( bucket_count ):
+		if bucket_count >= 0 and is_pow2(bucket_count):
+			return bucket_count - 1
+		else:
+			raise ValueError('Illegal bucket_count: {:d}'.format(bucket_count))
+
+
+	def __len__( self ):
+		return self._size
+
+	def __bool__( self ):
+		return bool(self._size)
 
 
 	def __iter__( self ):
 		"""Returns an iterator over the entries of this hash set."""
-		self._extend_buckets()
-		return itertools.chain.from_iterable(
-			map(self.get_bucket, range(self.header.bucket_count)))
-
-
-	@property
-	def buckets( self ):
-		if not self._buckets_complete:
-			self._extend_buckets()
-			util.iter.each(self.get_bucket, range(self.header.bucket_count))
-			self._buckets_complete = True
-
-		return self._buckets
+		for b in map(self.get_bucket, range(len(self._buckets))):
+			yield from b
+		self._buckets_complete = True
 
 
 	def __contains__( self, obj ):
 		"""Tests if this hash set contains the given object."""
-		return obj in self.get_bucket(self.header.get_bucket_idx(obj))
+		return obj in self.get_bucket_for(obj)
 
 
 	def get_bucket( self, n ):
@@ -82,29 +110,142 @@ class hashset:
 		A bucket is either a sequence or a set of entries.
 		"""
 
-		self._extend_buckets(n + 1)
 		bucket = self._buckets[n]
 		if bucket is None:
-			offset = self.buckets_idx[n]
-			length = (
-				util.getitem(self.buckets_idx, n + 1,
-					len(self.buf) - self.value_offset) - offset)
-			if length > 0:
-				bucket = (
-					self.header.pickler.load_bucket(
-						self.buf, self.value_offset + offset, length))
+			if self.buf is None:
+				bucket = []
 			else:
-				assert length == 0
-				bucket = ()
+				offset = self.buckets_idx[n]
+				length = (
+					util.getitem(self.buckets_idx, n + 1,
+						len(self.buf) - self._value_offset) - offset)
+				if length > 0:
+					bucket = (
+						self.header.pickler.load_bucket(
+							self.buf, self._value_offset + offset, length))
+				else:
+					assert length == 0
+					bucket = ()
 
 			self._buckets[n] = bucket
 
 		return bucket
 
 
-	@staticmethod
-	def _open_mmap( fd ):
-		return mmap.mmap(fd, 0, access=mmap.ACCESS_READ)
+	def get_bucket_for( self, obj ):
+		return self.get_bucket(self.get_bucket_idx_for(obj))
+
+
+	def get_bucket_idx_for( self, obj ):
+		return self.header.hash(obj) & self._hash_mask
+
+
+	@property
+	def buckets( self ):
+		if not self._buckets_complete:
+			util.iter.each(self.get_bucket, range(self.header.bucket_count))
+			self._buckets_complete = True
+		return self._buckets
+
+
+	def add( self, obj ):
+		bucket = self.get_bucket_for(obj)
+		if obj in bucket:
+			return False
+		else:
+			bucket.append(obj)
+			self._size += 1
+			return True
+
+
+	def discard( self, obj ):
+		bucket = self.get_bucket_for(obj)
+		try:
+			bucket.remove(obj)
+			self._size -= 1
+			return True
+		except ValueError:
+			return False
+
+
+	def remove( self, obj ):
+		discarded = self.discard(obj)
+		if not discarded:
+			raise KeyError(obj)
+
+
+	def pop( self ):
+		if self._size:
+			self._size -= 1
+			return next(iter(filter(bool,
+				map(self.get_bucket, range(self.header.bucket_count))))).pop()
+		else:
+			raise KeyError('empty set')
+
+
+	def update( self, *iterable ):
+		if not iterable:
+			return
+		iterable = (
+			iterable[0] if len(iterable) == 1 else itertools.chain(*iterable))
+
+		iterable_len = self._get_len(iterable)
+		if iterable_len is None:
+			for item in iterable:
+				self.add(item)
+		else:
+			self.reserve(self._size + iterable_len)
+			util.iter.each(self._add_impl, iterable)
+
+
+	def reserve( self, size=None, load_factor=None ):
+		if size is None:
+			size = self._size
+		else:
+			assert size >= 0
+		if load_factor is not None:
+			assert load_factor > 0
+			self.load_factor = load_factor
+
+		required_buckets = math.ceil(max(size, 0) / self.load_factor)
+		if required_buckets > len(self._buckets):
+			self._rehash(required_buckets)
+
+
+	def _rehash( self, bucket_count, force=False ):
+		if bucket_count > 0:
+			bucket_count = ceil_pow2(bucket_count)
+		elif bucket_count < 0:
+			raise ValueError('Negative bucket count')
+		elif self._size:
+			raise ValueError('Zero bucket count for non-empty element set')
+		if not force and bucket_count == self.header.bucket_count:
+			return
+
+		hash_mask = self._to_hash_mask(bucket_count)
+		buckets = [None] * bucket_count
+		for item in self:
+			i = self.header.hash(item) & hash_mask
+			bucket = buckets[i]
+			if bucket is None:
+				bucket = []
+				buckets[i] = bucket
+			bucket.append(item)
+
+		self.release()
+		self._mmap = None
+		self.buf = None
+		self.value_offset = None
+		self.buckets_idx = None
+		self._buckets = buckets
+		self._hash_mask = hash_mask
+
+
+	@property
+	def header( self ):
+		self._header.element_count = self._size
+		self._header.bucket_count = len(self._buckets)
+		return self._header
 
 
 	def release( self ):
@@ -114,9 +255,10 @@ class hashset:
 		upon exit.
 		"""
 
-		for v in vars(self).values():
-			if isinstance(v, memoryview):
-				v.release()
+		util.iter.each(memoryview.release,
+			filter(functional.instance_tester(memoryview), itertools.chain(
+				itertools.chain.from_iterable(filter(bool, self._buckets)),
+				(self.buckets_idx, self.buf))))
 		if self._mmap is not None:
 			self._mmap.close()
 
@@ -129,56 +271,29 @@ class hashset:
 		return False
 
 
-	@staticmethod
-	def build( iterable, file=None, hasher=default_hasher,
-		pickler=pickle_proxy(pickle), load_factor=2/3, **header_kwargs
-	):
-		"""Builds a new hash set based on the items of a given iterable and saves the resulting data set to a buffer, typically backed by a file.
-
-		'hasher' is a callable that accepts an object to hash and optional 'pickler'
-		callable to convert the object to a byte sequence consumable by most hash
-		algorithm implementations.
-
-		'pickler' is an object with the 4 function interfaces 'dump_single',
-		'dump_bucket', 'load_single', and 'load_bucket' that “dump” single objects
-		or buckets (i. e. sequences) to or load them from byte sequences.
-
-		'load_factor' is the ratio of buckets to items used in this hash set.
-		"""
-
-		if isinstance(iterable, collections.abc.Set):
-			_set = iterable
-		else:
-			_set = frozenset(iterable)
-		del iterable
-
-		header = hashset_header(hasher, pickler, **header_kwargs)
-		header.set_element_count(len(_set), load_factor)
-		header.run_estimates(_set)
+	def to_file( self, file ):
+		self.header.run_estimates(self)
 
 		while True:
-			buckets = [()] * header.bucket_count
 			try:
-				for obj in _set:
-					i = header.get_bucket_idx(obj)
-					bucket = buckets[i] or []
-					if not bucket:
-						buckets[i] = bucket
-					bucket.append(obj)
-
+				buckets = list(util.iter.iconditional(
+					self.buckets, bool, self.header.pickler.dump_bucket, b''))
 				break
 			except PickleError as err:
 				if err.can_resume:
 					header.reevaluate()
 				else:
 					raise err
-		del _set
 
-		buckets = list(
-			util.iter.iconditional(buckets, bool, pickler.dump_bucket, b''))
+		file.write(self.header.to_bytes(None, buckets))
+		if buckets:
+			util.iter.each(file.write, itertools.chain(
+				map(self.header.int_to_bytes,
+					util.iter.saccumulate(0, map(len, buckets),
+						slice(len(buckets) - 1))),
+				buckets))
 
-		if file is not None:
-			header.to_file(file, buckets)
-			return file
-		else:
-			return buckets
+
+	@staticmethod
+	def _get_len( obj, default=None ):
+		return len(obj) if isinstance(obj, collections.abc.Sized) else default
