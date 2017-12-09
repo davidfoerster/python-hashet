@@ -105,7 +105,7 @@ class bytes_pickler:
 class codec_pickler(bytes_pickler):
 	"""Like its parent, but encodes objects to byte sequences using a codec."""
 
-	def __init__( self, codec, *args, **kwargs ):
+	def __init__( self, codec, external_encoding=None, *args, **kwargs ):
 		"""Initializes a new instance with a codec name or a CodecInfo instance…
 
 		(from the codecs module). Other arguments are forwarded are forwarded
@@ -116,16 +116,27 @@ class codec_pickler(bytes_pickler):
 
 		if isinstance(codec, str):
 			codec = codecs.lookup(codec)
-		self._encode = codec.encode
-		self._decode = codec.decode
+		self.codec = codec
+		self.set_bypass_for(external_encoding)
+
+
+	def get_bypass_for( self ):
+		return self._bypass
+
+	def set_bypass_for( self, external_encoding ):
+		if isinstance(external_encoding, str):
+			external_encoding = codecs.lookup(external_encoding)
+		self._bypass = self.codec == external_encoding
+		return self._bypass
 
 
 	def dump_single_convert( self, obj ):
-		return self._encode(obj)[0]
+		return obj if self._bypass else self.codec.encode(obj)[0]
 
 
 	def load_single_convert( self, buf, offset, length=None ):
-		return self._decode(super().load_single_convert(buf, offset, length))[0]
+		buf = super().load_single_convert(buf, offset, length)
+		return buf if self._bypass else self.codec.decode(buf)[0]
 
 
 	@classmethod
@@ -138,6 +149,19 @@ class codec_pickler(bytes_pickler):
 			codec = locale.getpreferredencoding(False)
 
 		return cls(codec, *args, **kwargs)
+
+
+	def __getstate__( self ):
+		v = dict(vars(self))
+		del v['_bypass']
+		v['codec'] = getattr(self.codec, 'name', self.codec)
+		return v
+
+
+	def __setstate__( self, state ):
+		assert '_bypass' not in state
+		codec = state.pop('codec')
+		self.__init__(codec, **state)
 
 
 #####################################################################
