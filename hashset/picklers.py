@@ -121,9 +121,14 @@ class codec_pickler(bytes_pickler):
 
 
 	def get_bypass_for( self ):
+		"""Returns whether this pickler bypasses its codec."""
 		return self._bypass
 
 	def set_bypass_for( self, external_encoding ):
+		"""Sets the pickler into bypass mode if the given external encoding matches
+
+		...the internal codec."""
+
 		if isinstance(external_encoding, str):
 			external_encoding = codecs.lookup(external_encoding)
 		self._bypass = self.codec == external_encoding

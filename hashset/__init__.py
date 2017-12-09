@@ -22,10 +22,18 @@ class hashset:
 
 
 	def __init__( self, _from=None, load_factor=2/3 ):
-		"""Initialize a new hashset instance with a backing buffer.
+		"""Initialize a new hashset instance.
 
+		If '_from' is a buffer the hash set is built based on its content.
 		The buffer may be a path name or a file descriptor that serves as a
 		reference to construct a memory-mapping of the referenced file.
+
+		If '_from' is a mapping instance its 'hasher' and 'pickler' entries are
+		used to construct an empty hash set in-memory. The other mapping entries
+		are forwarded to the header constructor.
+
+		If '_from' is None (the default) the constructor chooses suitable default
+		values to build a new in-memory hash set.
 		"""
 
 		self.load_factor = load_factor
@@ -133,15 +141,18 @@ class hashset:
 
 
 	def get_bucket_for( self, obj ):
+		"""Returns the bucket for the given object."""
 		return self.get_bucket(self.get_bucket_idx_for(obj))
 
 
 	def get_bucket_idx_for( self, obj ):
+		"""Returns the bucket index for the given object."""
 		return self.header.hash(obj) & self._hash_mask
 
 
 	@property
 	def buckets( self ):
+		"""The list of buckets backing this hash set."""
 		if not self._buckets_complete:
 			util.iter.each(self.get_bucket, range(self.header.bucket_count))
 			self._buckets_complete = True
@@ -149,6 +160,11 @@ class hashset:
 
 
 	def add( self, obj ):
+		self.reserve(self._size + 1)
+		return self._add_impl(obj)
+
+
+	def _add_impl( self, obj ):
 		bucket = self.get_bucket_for(obj)
 		if obj in bucket:
 			return False
@@ -199,6 +215,17 @@ class hashset:
 
 
 	def reserve( self, size=None, load_factor=None ):
+		"""Re-allocates an amount of buckets suitable for the given size and load factor.
+
+		If necessary the entire hash set is re-hashed to accomodate the new size.
+
+		The hash set will use the given load factor from hereon. If none is given,
+		the current load factor is used instead.
+
+		If no size is given, the current hash set site is used. This allows one to
+		change the load factor only.
+		"""
+
 		if size is None:
 			size = self._size
 		else:
@@ -243,6 +270,7 @@ class hashset:
 
 	@property
 	def header( self ):
+		"""Returns the header object used to build the file header for this hash set."""
 		self._header.element_count = self._size
 		self._header.bucket_count = len(self._buckets)
 		return self._header
@@ -272,6 +300,11 @@ class hashset:
 
 
 	def to_file( self, file ):
+		"""Writes this hash set to a file or buffer-like object
+
+		in a way that allows later retrieval from the same buffer through the
+		class constructor."""
+
 		self.header.run_estimates(self)
 
 		while True:
