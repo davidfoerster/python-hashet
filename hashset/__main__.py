@@ -1,67 +1,100 @@
 #!/usr/bin/env python3
 import sys, os
 import collections
-import contextlib
 import hashset
 import hashset.util as util
 import hashset.util.io as util_io
 import hashset.util.iter as util_iter
+import hashset.util.functional as functional
 from functools import partial as fpartial
+from .picklers import codec_pickler
+
+
+class ActionHelper:
+	def __init__( self, kwargs, pickler=None, linesep=os.linesep ):
+		self.encoding = kwargs.pop('external_encoding')
+
+		self.pickler = (pickler or
+			kwargs['pickler'].get_instance(
+				codec=kwargs['internal_encoding'], int_size=kwargs['item_int_size']))
+		self.pickler.set_bypass_for(self.encoding)
+
+		self.can_bypass_codec = (
+			isinstance(self.pickler, codec_pickler) and
+			self.pickler.get_bypass_for())
+		if self.can_bypass_codec:
+			self.linesep = self.pickler.dump_single_convert(linesep)
+			self.encoding = 'binary'
+			self.open_flags = 'b'
+		else:
+			self.linesep = linesep
+			self.open_flags = 't'
+
+
+	def open( self, path, mode='r' ):
+		return util_io.open(
+			path, mode + self.open_flags, encoding=self.encoding)
+
+
+	def open_stdstream( self, name ):
+		return util_io.open_stdstream(name, self.encoding)
+
+
+	def strip_line( self, line ):
+		return util_io.strip_line_terminator(line, self.linesep)
+
+
+	def println( self, file, data ):
+		file.write(data)
+		file.write(self.linesep)
 
 
 def build( in_path, out_path, **kwargs ):
-	pickler = kwargs['pickler'].get_instance(
-		codec=kwargs['internal_encoding'],
-		external_encoding=kwargs['external_encoding'],
-		int_size=kwargs['item_int_size'])
-
-	in_mode = 'r'
-	linesep = os.linesep
+	ai = ActionHelper(kwargs)
 	_set = hashset.hashset(
-		dict(pickler=pickler, hasher=kwargs['hash'].get_instance(),
+		dict(pickler=ai.pickler, hasher=kwargs['hash'].get_instance(),
 			int_size=kwargs['index_int_size']),
 		kwargs['load_factor'])
-
-	with contextlib.ExitStack() as es:
-		_set.update(map(
-			fpartial(util_io.strip_line_terminator, linesep=linesep),
-			es.enter_context(util_io.open(
-				in_path, in_mode, encoding=kwargs['external_encoding']))))
-
+	with ai.open(in_path) as f_in:
+		_set.update(map(ai.strip_line, f_in))
 	with util_io.open(out_path, 'wb') as f_out:
 		_set.to_file(f_out)
-
 	return 0
 
 
 def dump( in_path, **kwargs ):
-	with contextlib.ExitStack() as es:
-		util_iter.each(
-			fpartial(print, file=es.enter_context(
-				util_io.open_stdstream('stdout', kwargs['external_encoding']))),
-			es.enter_context(hashset.hashset(in_path)))
-
+	with hashset.hashset(in_path) as _set:
+		ai = ActionHelper(kwargs, _set.header.pickler)
+		with ai.open_stdstream('stdout', ) as f_out:
+			util_iter.each(fpartial(ai.println, f_out), _set)
 	return 0
 
 
 def probe( in_path, *needles, quiet=False, **kwargs ):
+	import contextlib
 	with contextlib.ExitStack() as es:
-		if not needles:
-			needles = map(util_io.strip_line_terminator,
-				es.enter_context(util_io.open_stdstream(
-					'stdin', encoding=kwargs['external_encoding'])))
-
 		_set = es.enter_context(hashset.hashset(in_path))
+		ai = ActionHelper(kwargs, _set.header.pickler)
+
+		if needles:
+			if ai.can_bypass_codec:
+				needles = map(ai.pickler.dump_single_convert, needles)
+		else:
+			needles = map(ai.strip_line,
+				es.enter_context(ai.open_stdstream('stdin')))
 
 		if quiet:
 			found_any = any(map(_set.__contains__, needles))
 		else:
-			f = es.enter_context(
-				util_io.open_stdstream('stdout', kwargs['external_encoding']))
-			found_any = False
-			for item in filter(_set.__contains__, needles):
+			f_out = es.enter_context(ai.open_stdstream('stdout'))
+			_iter = iter(filter(_set.__contains__, needles))
+			try:
+				ai.println(f_out, next(_iter))
 				found_any = True
-				print(item, file=f)
+			except StopIteration:
+				found_any = False
+			if found_any:
+				util_iter.each(fpartial(ai.println, f_out), _iter)
 
 	return int(not found_any)
 

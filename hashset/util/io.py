@@ -119,6 +119,7 @@ def open_stdstream( name, encoding=None, errors='strict', newlines=None,
 	setattr(sys, name, None)
 
 	matches = (
+		encoding != 'binary' and
 		errors == f.errors and newlines == f.newlines and
 		line_buffering == f.line_buffering)
 	if matches and encoding is not None and encoding != f.encoding:
@@ -127,7 +128,9 @@ def open_stdstream( name, encoding=None, errors='strict', newlines=None,
 		matches = encoding == f_encoding
 	if not matches:
 		f.flush()
-		f = io.TextIOWrapper(f.detach(), encoding, errors, newlines, line_buffering)
+		f = f.detach()
+		if encoding != 'binary':
+			f = io.TextIOWrapper(f, encoding, errors, newlines, line_buffering)
 
 	return f
 
