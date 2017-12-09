@@ -39,7 +39,8 @@ class hashset:
 		self.buf = memoryview(buf)
 		self.header = hashset_header.from_bytes(self.buf)
 		self.value_offset = self.header.value_offset()
-		self.buckets = []
+		self._buckets = []
+		self._buckets_complete = False
 		self.buckets_idx = (
 			self.buf[self.header.index_offset : self.value_offset]
 				.cast('BHILQ'[self.header.int_size.bit_length() - 1]))
@@ -48,16 +49,26 @@ class hashset:
 	def _extend_buckets( self, size=None ):
 		if size is None:
 			size = self.header.bucket_count
-		if len(self.buckets) < size:
-			self.buckets.extend(
-				itertools.repeat(None, size - len(self.buckets)))
+		if len(self._buckets) < size:
+			self._buckets.extend(
+				itertools.repeat(None, size - len(self._buckets)))
 
 
 	def __iter__( self ):
 		"""Returns an iterator over the entries of this hash set."""
-		self._extend_buckets
+		self._extend_buckets()
 		return itertools.chain.from_iterable(
 			map(self.get_bucket, range(self.header.bucket_count)))
+
+
+	@property
+	def buckets( self ):
+		if not self._buckets_complete:
+			self._extend_buckets()
+			util.iter.each(self.get_bucket, range(self.header.bucket_count))
+			self._buckets_complete = True
+
+		return self._buckets
 
 
 	def __contains__( self, obj ):
@@ -72,7 +83,7 @@ class hashset:
 		"""
 
 		self._extend_buckets(n + 1)
-		bucket = self.buckets[n]
+		bucket = self._buckets[n]
 		if bucket is None:
 			offset = self.buckets_idx[n]
 			length = (
@@ -86,7 +97,7 @@ class hashset:
 				assert length == 0
 				bucket = ()
 
-			self.buckets[n] = bucket
+			self._buckets[n] = bucket
 
 		return bucket
 
