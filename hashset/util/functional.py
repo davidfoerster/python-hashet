@@ -53,6 +53,11 @@ is_not_none = functools.partial(operator.is_not, None)
 itemgetter = tuple(map(operator.itemgetter, range(2)))
 
 
+def attrdeleter( name ):
+	"""Returns a function that calls 'delattr' with the given name."""
+	return functools.partial(call_last_as_first, delattr, name)
+
+
 def instance_tester( _type ):
 	return functools.partial(call_last_as_first, isinstance, _type)
 

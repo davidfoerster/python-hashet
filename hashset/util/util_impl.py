@@ -1,4 +1,5 @@
 import operator, collections.abc
+from .functional import attrdeleter
 
 
 def as_tuple( *args ):
@@ -24,11 +25,6 @@ def pad_multiple_of( b, n, fill=b'\0' ):
 	l = b if isinstance(b, int) else len(b)
 	l -= (l % -n)
 	return l if isinstance(b, int) else b.ljust(l, fill)
-
-
-def attrdeleter( name ):
-	"""Returns a function that calls 'delattr' with the given name."""
-	return lambda obj: delattr(obj, name)
 
 
 def property_setter( fset, fget='_{}', fdel=None, doc=None, docref='fset' ):
