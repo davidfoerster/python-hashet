@@ -27,6 +27,10 @@ def rapply( x, func ):
 	return func(x)
 
 
+def call_last_as_first( func, *args ):
+	return func(args[-1], *args[:-1])
+
+
 def methodcaller( func, *args ):
 	"""Retuns a function object that invokes a given method on its first argument.
 
@@ -38,7 +42,7 @@ def methodcaller( func, *args ):
 	"""
 
 	if callable(func):
-		return lambda obj: func(obj, *args)
+		return functools.partial(call_last_as_first, func, *args)
 	else:
 		return operator.methodcaller(func, *args)
 
@@ -50,7 +54,7 @@ itemgetter = tuple(map(operator.itemgetter, range(2)))
 
 
 def instance_tester( _type ):
-	return lambda x: isinstance(x, _type)
+	return functools.partial(call_last_as_first, isinstance, _type)
 
 
 def project_out( *funcs ):
