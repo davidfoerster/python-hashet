@@ -1,4 +1,4 @@
-import functools, operator
+import itertools, functools, operator
 
 
 def identity( x ):
@@ -57,7 +57,12 @@ def instance_tester( _type ):
 	return functools.partial(call_last_as_first, isinstance, _type)
 
 
-def project_out( *funcs ):
+def project_out( *funcs, mapping=None ):
 	"""Returns a function object that "projects" its arguments to tuple elements based on the given function."""
 
-	return lambda x: tuple(f(x) for f in funcs)
+	if mapping is not None:
+		mapping = map(operator.itemgetter, mapping)
+		funcs = tuple(
+			itertools.starmap(comp, zip(funcs, mapping)) if funcs else mapping)
+
+	return lambda x: tuple(map(functools.partial(rapply, x), funcs))
