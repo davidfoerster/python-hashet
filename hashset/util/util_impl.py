@@ -23,7 +23,7 @@ def pad_multiple_of( b, n, fill=b'\0' ):
 
 	l = b if isinstance(b, int) else len(b)
 	l -= (l % -n)
-	return l if isinstance(b, int) else b.ljust(l - (l % -n), fill)
+	return l if isinstance(b, int) else b.ljust(l, fill)
 
 
 def attrdeleter( name ):

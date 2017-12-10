@@ -39,7 +39,7 @@ class hashset:
 		self.load_factor = load_factor
 
 		if _from is None or isinstance(_from, collections.abc.Mapping):
-			kwargs = dict(self._default_header_args)
+			kwargs = self._default_header_args.copy()
 			if _from is not None:
 				kwargs.update(_from)
 			pargs = (kwargs.pop('hasher'), kwargs.pop('pickler'))
