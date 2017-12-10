@@ -1,4 +1,4 @@
-import operator
+import operator, collections.abc
 
 
 def as_tuple( *args ):
@@ -12,6 +12,10 @@ def getitem( seq, idx, default ):
 	the acceptable range, or 'default'.
 	"""
 	return seq[idx] if 0 <= idx < len(seq) else default
+
+
+def getlength( obj, default=None ):
+	return len(obj) if isinstance(obj, collections.abc.Sized) else default
 
 
 def pad_multiple_of( b, n, fill=b'\0' ):

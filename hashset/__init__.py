@@ -205,7 +205,7 @@ class hashset:
 		iterable = (
 			iterable[0] if len(iterable) == 1 else itertools.chain(*iterable))
 
-		iterable_len = self._get_len(iterable)
+		iterable_len = util.getlength(iterable)
 		if iterable_len is None:
 			for item in iterable:
 				self.add(item)
@@ -325,8 +325,3 @@ class hashset:
 					util.iter.saccumulate(0, map(len, buckets),
 						slice(len(buckets) - 1))),
 				buckets))
-
-
-	@staticmethod
-	def _get_len( obj, default=None ):
-		return len(obj) if isinstance(obj, collections.abc.Sized) else default
