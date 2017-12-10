@@ -322,6 +322,5 @@ class hashset:
 		if buckets:
 			util.iter.each(file.write, itertools.chain(
 				map(self.header.int_to_bytes,
-					util.iter.saccumulate(0, map(len, buckets),
-						slice(len(buckets) - 1))),
+					util.iter.accumulate(map(len, util.iter.islice(buckets, -1)), 0)),
 				buckets))

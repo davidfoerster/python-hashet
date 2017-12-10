@@ -1,16 +1,55 @@
 import itertools
+from .util_impl import getlength
 from .functional import identity
 
 
-def saccumulate( start, iterable, _slice=None ):
-	"""Slices an iterator (as with 'itertools.islice') and accumulates its values
-	(as with 'itertools.accumulate'), starting with the additional value 'start'."""
+def islice( iterable, start, *args ):
+	"""Very similar to 'itertools.islice' but supports negative start and stop values if the underlying iterable has a length."""
 
-	if _slice is not None:
-		iterable = itertools.islice(
-			iterable, _slice.start, _slice.stop, _slice.step)
+	if len(args) == 0:
+		stop = start
+		start = None
+		step = None
+	elif len(args) == 1:
+		stop = args[0]
+		step = None
+	elif len(args) == 2:
+		stop, step = args
+	else:
+		raise TypeError(
+			'Expected 2 to 4 arguments, got {:d}'.format(len(args) + 2))
 
-	return itertools.accumulate(itertools.chain((start,), iterable))
+	if step is None:
+		step = 1
+
+	if stop is None:
+		stop = getlength(iterable)
+	else:
+		if stop < 0:
+			stop = max(stop + len(iterable), 0)
+		stop = min(stop, getlength(iterable, stop))
+
+	if start is None:
+		start = 0
+	elif start < 0:
+		start = max(start + len(iterable), 0)
+
+	if stop is not None and start >= stop:
+		iterable = ()
+	elif (start > 0 or step != 1 or
+		(stop is not None and stop < getlength(iterable, stop))
+	):
+		iterable = itertools.islice(iterable, start, stop, step)
+
+	return iterable
+
+
+def accumulate( iterable, *start ):
+	"""Accumulates the values of an iterable (as with 'itertools.accumulate'), prefixed with the additional arguments."""
+
+	if start:
+		iterable = itertools.chain(start, iterable)
+	return itertools.accumulate(iterable)
 
 
 def each( func, iterable ):
