@@ -20,10 +20,10 @@ def comp( *funcs, rev=True ):
 
 	if rev:
 		funcs = funcs[::-1]
-	return functools.partial(functools.reduce, _comp_reducer, funcs)
+	return functools.partial(functools.reduce, rapply, funcs)
 
 
-def _comp_reducer( x, func ):
+def rapply( x, func ):
 	return func(x)
 
 
