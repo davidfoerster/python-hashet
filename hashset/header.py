@@ -16,9 +16,9 @@ class _vardata_hook:
 
 	def setter( self, fset ):
 		self.fset = fset
-		if not self.__doc__:
+		if self.__doc__ is None:
 			doc = getattr(fset, '__doc__', None)
-			if doc:
+			if isinstance(doc, str):
 				self.__doc__ = doc
 		return self
 

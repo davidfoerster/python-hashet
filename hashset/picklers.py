@@ -69,8 +69,8 @@ class bytes_pickler:
 			offset += length
 
 
-	def run_estimates( self, items ):
-		if self.int_size <= 0:
+	def run_estimates( self, items, force=False ):
+		if force or self.int_size <= 0:
 			longest = max(items, key=len, default=None)
 			if longest is not None:
 				self.int_size = max(
@@ -157,7 +157,7 @@ class codec_pickler(bytes_pickler):
 
 
 	def __getstate__( self ):
-		v = dict(vars(self))
+		v = vars(self).copy()
 		del v['_bypass']
 		v['codec'] = getattr(self.codec, 'name', self.codec)
 		return v

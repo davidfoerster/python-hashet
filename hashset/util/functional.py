@@ -70,11 +70,11 @@ def instance_tester( _type ):
 	return functools.partial(call_as_first, 1, isinstance, _type)
 
 
-def project_out( *funcs, mapping=None ):
+def project_out( *funcs, mapping=None, mapping_type=operator.itemgetter ):
 	"""Returns a function object that "projects" its arguments to tuple elements based on the given function."""
 
 	if mapping is not None:
-		mapping = map(operator.itemgetter, mapping)
+		mapping = map(mapping_type, mapping)
 		funcs = tuple(
 			itertools.starmap(comp, zip(funcs, mapping)) if funcs else mapping)
 
