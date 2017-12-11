@@ -27,8 +27,17 @@ def rapply( x, func ):
 	return func(x)
 
 
-def call_last_as_first( func, *args ):
-	return func(args[-1], *args[:-1])
+def call_as_first( first_idx, func, *args ):
+	if first_idx >= len(args):
+		raise TypeError(
+			'Expected at least {0:d} arguments to invoke '
+			'"{2.__module__}.{2.__qualname__}" through '
+			'"{3.__module__}.{3.__qualname__}", got {1:d}'
+				.format(first_idx + 1, len(args), func, call_as_first))
+
+	args = list(args)
+	first = args.pop(first_idx)
+	return func(first, *args)
 
 
 def methodcaller( func, *args ):
@@ -42,7 +51,7 @@ def methodcaller( func, *args ):
 	"""
 
 	if callable(func):
-		return functools.partial(call_last_as_first, func, *args)
+		return functools.partial(call_as_first, len(args), func, *args)
 	else:
 		return operator.methodcaller(func, *args)
 
@@ -55,11 +64,11 @@ itemgetter = tuple(map(operator.itemgetter, range(2)))
 
 def attrdeleter( name ):
 	"""Returns a function that calls 'delattr' with the given name."""
-	return functools.partial(call_last_as_first, delattr, name)
+	return functools.partial(call_as_first, 1, delattr, name)
 
 
 def instance_tester( _type ):
-	return functools.partial(call_last_as_first, isinstance, _type)
+	return functools.partial(call_as_first, 1, isinstance, _type)
 
 
 def project_out( *funcs, mapping=None ):
