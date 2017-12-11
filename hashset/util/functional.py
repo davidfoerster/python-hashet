@@ -59,7 +59,6 @@ def methodcaller( func, *args ):
 is_none = functools.partial(operator.is_, None)
 is_not_none = functools.partial(operator.is_not, None)
 
-itemgetter = tuple(map(operator.itemgetter, range(2)))
 
 
 def attrdeleter( name ):
