@@ -60,6 +60,9 @@ is_none = functools.partial(operator.is_, None)
 is_not_none = functools.partial(operator.is_not, None)
 
 
+def attrsetter( name ):
+	return functools.partial(call_as_first, 1, setattr, name)
+
 
 def attrdeleter( name ):
 	"""Returns a function that calls 'delattr' with the given name."""

@@ -11,7 +11,7 @@ class _vardata_hook:
 	def __init__( self, name, doc=None ):
 		self.name = '_' + name
 		self.__doc__ = doc
-		self.fset = None
+		self.fset = functional.attrsetter(self.name)
 
 
 	def setter( self, fset ):
@@ -30,11 +30,7 @@ class _vardata_hook:
 	def __set__( self, instance, value ):
 		old_value = self.__get__(instance, None)
 		if type(value) is not type(old_value) or value != old_value:
-			if self.fset is None:
-				setattr(instance, self.name, value)
-			else:
-				self.fset(instance, value)
-
+			self.fset(instance, value)
 			instance.reevaluate()
 
 
