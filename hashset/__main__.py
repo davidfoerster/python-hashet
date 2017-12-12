@@ -138,8 +138,8 @@ class ArgumentChoice(collections.UserString):
 
 	@classmethod
 	def update_choices( cls, value_func, default=None ):
-		cls.choices.update(
-			(item[0], cls(*value_func(*item))) for item in cls.choices.items())
+		cls.choices.update({
+			item[0]: cls(*value_func(*item)) for item in cls.choices.items()})
 		if default is not None:
 			cls.default = cls.choices[default]
 
