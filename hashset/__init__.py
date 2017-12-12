@@ -88,7 +88,7 @@ class hashset:
 	@staticmethod
 	def _to_hash_mask( bucket_count ):
 		if bucket_count >= 0 and is_pow2(bucket_count):
-			return bucket_count - 1
+			return max(bucket_count - 1, 0)
 		else:
 			raise ValueError('Illegal bucket_count: {:d}'.format(bucket_count))
 
@@ -178,10 +178,11 @@ class hashset:
 		bucket = self.get_bucket_for(obj)
 		try:
 			bucket.remove(obj)
-			self._size -= 1
-			return True
 		except ValueError:
 			return False
+
+		self._size -= 1
+		return True
 
 
 	def remove( self, obj ):
@@ -207,8 +208,7 @@ class hashset:
 
 		iterable_len = util.getlength(iterable)
 		if iterable_len is None:
-			for item in iterable:
-				self.add(item)
+			util.iter.each(self.add, iterable)
 		else:
 			self.reserve(self._size + iterable_len)
 			util.iter.each(self._add_impl, iterable)
@@ -230,6 +230,7 @@ class hashset:
 			size = self._size
 		else:
 			assert size >= 0
+
 		if load_factor is not None:
 			assert load_factor > 0
 			self.load_factor = load_factor

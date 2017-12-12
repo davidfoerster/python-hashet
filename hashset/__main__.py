@@ -65,7 +65,7 @@ def build( in_path, out_path, **kwargs ):
 def dump( in_path, **kwargs ):
 	with hashset.hashset(in_path) as _set:
 		ai = ActionHelper(kwargs, _set.header.pickler)
-		with ai.open_stdstream('stdout', ) as f_out:
+		with ai.open_stdstream('stdout') as f_out:
 			util_iter.each(fpartial(ai.println, f_out), _set)
 	return 0
 

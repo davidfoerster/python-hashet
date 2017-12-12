@@ -43,7 +43,7 @@ class header:
 
 	_struct = struct.Struct('=BB 2x I')
 	_struct_keys = ('version', 'int_size', 'index_offset')
-	_vardata_keys = ('element_count', 'bucket_count', 'hasher', 'pickler')
+	_vardata_keys = {'element_count', 'bucket_count', 'hasher', 'pickler'}
 	vars().update({ k: _vardata_hook(k) for k in _vardata_keys })
 
 	hasher.__doc__ = """The hasher to use for this hash set. (See 'hashset.build' for a description.)"""
@@ -127,7 +127,7 @@ class header:
 			return cls._magic
 		if cls.byteorder == 'big':
 			return cls._magic[::-1]
-		raise Exception('Unknown byte order: {!r}'.format(cls.byteorder))
+		raise RuntimeError('Unknown byte order: {!r}'.format(cls.byteorder))
 
 
 	def calculate_sizes( self, buckets=None, force=False ):
@@ -141,7 +141,7 @@ class header:
 		if self.int_size <= 0 and buckets is not None:
 			max_int = sum(map(len, buckets))
 			self.int_size = ceil_pow2(ceil_div(max_int.bit_length(), 8))
-			assert 0 <= self.int_size.bit_length() <= 8
+			assert 0 <= self.int_size <= 0xFF
 
 		# Calculate index offset
 		self.index_offset = util.pad_multiple_of(
@@ -194,13 +194,11 @@ class header:
 
 		var = pickle.loads(
 			b[ len(magic) + cls._struct.size : s['index_offset'] ])
-		missing_keys = tuple(
-			itertools.filterfalse(var.__contains__, cls._vardata_keys))
-		if missing_keys:
-			raise ValueError('Keys missing from header: {}'
-				.format(', '.join(missing_keys)))
+		if cls._vardata_keys != var.keys():
+			raise ValueError('Header field mismatch: {}'
+				.format(', '.join(cls._vardata_keys ^ var.keys())))
 
-		h = cls(var.pop('hasher'), var.pop('pickler'), s.pop('int_size'))
-		h._element_count = var.pop('element_count')
-		util_iter.stareach(h.__setattr__, itertools.chain(s.items(), var.items()))
+		h = cls(None, None)
+		util_iter.stareach(fpartial(setattr, h),
+			itertools.chain(s.items(), var.items()))
 		return h
