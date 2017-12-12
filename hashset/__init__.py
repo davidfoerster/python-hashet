@@ -247,7 +247,7 @@ class hashset:
 			raise ValueError('Negative bucket count')
 		elif self._size:
 			raise ValueError('Zero bucket count for non-empty element set')
-		if not force and bucket_count == self.header.bucket_count:
+		if not force and bucket_count == len(self._buckets):
 			return
 
 		hash_mask = self._to_hash_mask(bucket_count)
