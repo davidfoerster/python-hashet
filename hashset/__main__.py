@@ -250,15 +250,16 @@ def main( args ):
 
 	kwargs = vars(make_argparse().parse_args(args))
 
-	actions = ['build', 'dump', 'probe']
+	actions = [build, dump, probe]
 	action_args = None
 	while actions and action_args is None:
 		action = actions.pop()
-		action_args = kwargs.pop(action)
-	util_iter.each(kwargs.__delitem__, actions)
+		action_args = kwargs.pop(action.__name__)
+	util_iter.each(kwargs.__delitem__,
+		map(operator.attrgetter('__name__'), actions))
 	del actions
 
-	rv = globals()[action](*action_args, **kwargs)
+	rv = action(*action_args, **kwargs)
 	if rv != 0:
 		sys.exit(rv)
 
