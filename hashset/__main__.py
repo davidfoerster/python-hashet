@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys, os
-import collections
+import math, operator, collections
 import hashset
 import hashset.util as util
 import hashset.util.io as util_io
@@ -107,9 +107,10 @@ def _parse_fraction( s, verifier=None ):
 		x = float(s)
 	else:
 		x = float(s[:split]) / float(s[split+1:])
-	if verifier is not None and not verifier(x):
-		raise ValueError('Illegal value {:f}, derived from {!r}'.format(x, s))
-	return x
+	if math.isfinite(x) and (verifier is None or verifier(x)):
+		return x
+
+	raise ValueError('Illegal value {:f}, derived from {!r}'.format(x, s))
 
 
 class NamedMethod(collections.UserString):
