@@ -17,11 +17,13 @@ class ActionHelper:
 		self.pickler = (pickler or
 			kwargs['pickler'].get_instance(
 				codec=kwargs['internal_encoding'], int_size=kwargs['item_int_size']))
-		self.pickler.set_bypass_for(self.encoding)
 
-		self.can_bypass_codec = (
-			isinstance(self.pickler, codec_pickler) and
-			self.pickler.get_bypass_for())
+		if isinstance(self.pickler, codec_pickler):
+			self.pickler.set_bypass_for(self.encoding)
+			self.can_bypass_codec = bool(self.pickler.get_bypass_for())
+		else:
+			self.can_bypass_codec = False
+
 		if self.can_bypass_codec:
 			self.linesep = self.pickler.dump_single_convert(linesep)
 			self.encoding = 'binary'
