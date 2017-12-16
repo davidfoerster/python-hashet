@@ -164,8 +164,8 @@ def make_argparse():
 	actions.add_argument('-b', '--build',
 		nargs=2, metavar=('ITEM-FILE', 'HASHSET-FILE'),
 		help='Build a new hash set from the lines of a file. '
-			'The special value \'-\' as a stand-in for standard input and output '
-			'respectively.')
+			"The special value '-' serves as a stand-in for standard input and "
+			'output respectively.')
 	actions.add_argument('-d', '--dump',
 		nargs=1, metavar='HASHSET-FILE',
 		help='Write out all items from a given hash set.')
@@ -197,11 +197,11 @@ def make_argparse():
 		type=int, metavar='N', default=0,
 		help='The size (in bytes) of the integer, a power of 2, used to store '
 			'offsets in the bucket index. This may save some time and memory during '
-			'hash set construction. (default: determine optimal value)')
+			'hash set construction. (default: 0, i. e. determine optimal value)')
 	p.add_argument('--item-int-size',
 		type=int, metavar='N', default=0,
 		help='The size (in bytes) of the integers used to store the length of the '
-			'(encoded) hash set items. (default: determine optimal value)')
+			'(encoded) hash set items. (default: 0, i. e. determine optimal value)')
 	default_load_factor = 0.75
 	p.add_argument('--load-factor', metavar='FRACTION',
 		type=NamedMethod('float or fraction',
