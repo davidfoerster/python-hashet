@@ -89,13 +89,17 @@ class header:
 		"""
 
 		if force or self._vardata is None:
-			if any(getattr(self, k) is None for k in self._vardata_keys):
+			self_getattr = fpartial(getattr, self)
+
+			if any(map(
+				functional.comp(functional.is_none, self_getattr), self._vardata_keys)
+			):
 				raise RuntimeError(
 					'One or more of \'{}\' were never assigned'
 						.format('\', \''.join(self._vardata_keys)))
 
 			self._vardata = pickle.dumps(dict(map(
-				functional.project_out(functional.identity, fpartial(getattr, self)),
+				functional.project_out(functional.identity, self_getattr),
 				self._vardata_keys)))
 
 		return self._vardata

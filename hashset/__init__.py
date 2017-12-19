@@ -40,8 +40,7 @@ class hashset:
 
 		if _from is None or isinstance(_from, collections.abc.Mapping):
 			kwargs = self._default_header_args.copy()
-			if _from is not None:
-				kwargs.update(_from)
+			if _from is not None: kwargs.update(_from)
 			pargs = (kwargs.pop('hasher'), kwargs.pop('pickler'))
 			self._header = hashset_header(*pargs, **kwargs)
 			self._buckets = []
@@ -228,8 +227,6 @@ class hashset:
 
 		if size is None:
 			size = self._size
-		else:
-			assert size >= 0
 
 		if load_factor is not None:
 			assert load_factor > 0
