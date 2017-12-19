@@ -84,19 +84,11 @@ def probe( in_path, *needles, quiet=False, **kwargs ):
 				es.enter_context(ai.open_stdstream('stdin')))
 
 		if quiet:
-			found_any = any(map(_set.__contains__, needles))
+			return any(map(_set.__contains__, needles))
 		else:
-			f_out = es.enter_context(ai.open_stdstream('stdout'))
-			_iter = iter(filter(_set.__contains__, needles))
-			try:
-				ai.println(f_out, next(_iter))
-				found_any = True
-			except StopIteration:
-				found_any = False
-			if found_any:
-				util_iter.each(fpartial(ai.println, f_out), _iter)
-
-	return int(not found_any)
+			return util_iter.each(
+				fpartial(ai.println, es.enter_context(ai.open_stdstream('stdout'))),
+				filter(_set.__contains__, needles))
 
 
 def _parse_fraction( s, verifier=None ):
