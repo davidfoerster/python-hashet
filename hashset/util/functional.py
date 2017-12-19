@@ -82,3 +82,11 @@ def project_out( *funcs, mapping=None, mapping_type=operator.itemgetter ):
 			itertools.starmap(comp, zip(funcs, mapping)) if funcs else mapping)
 
 	return lambda x: tuple(map(functools.partial(rapply, x), funcs))
+
+
+class starcall:
+	def __init__( self, func ):
+		self.func = func
+
+	def __call__( self, x ):
+		return self.func(*x)

@@ -1,6 +1,6 @@
 import itertools
 from .util_impl import getlength
-from .functional import identity
+from .functional import identity, starcall
 
 
 def islice( iterable, start, *args ):
@@ -54,14 +54,20 @@ def accumulate( iterable, *start ):
 
 def each( func, iterable ):
 	"""Calls the given function on each iterable item."""
+	iterable = iter(iterable)
+	try:
+		item = next(iterable)
+	except StopIteration:
+		return False
+	func(item)
 	for item in iterable:
 		func(item)
+	return True
 
 
 def stareach( func, iterable ):
 	"""Calls the given function with argument expansion on each iterable item."""
-	for item in iterable:
-		func(*item)
+	return each(starcall(func), iterable)
 
 
 def ichain( iterable, *suffix ):
