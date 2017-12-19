@@ -61,7 +61,6 @@ def build( in_path, out_path, **kwargs ):
 		_set.update(map(ai.strip_line, f_in))
 	with util_io.open(out_path, 'wb') as f_out:
 		_set.to_file(f_out)
-	return 0
 
 
 def dump( in_path, **kwargs ):
@@ -69,7 +68,6 @@ def dump( in_path, **kwargs ):
 		ai = ActionHelper(kwargs, _set.header.pickler)
 		with ai.open_stdstream('stdout') as f_out:
 			util_iter.each(fpartial(ai.println, f_out), _set)
-	return 0
 
 
 def probe( in_path, *needles, quiet=False, **kwargs ):
@@ -260,6 +258,10 @@ def main( args ):
 	del actions
 
 	rv = action(*action_args, **kwargs)
+	if rv is None:
+		rv = 0
+	elif isinstance(rv, bool):
+		rv = int(not rv)
 	if rv != 0:
 		sys.exit(rv)
 
